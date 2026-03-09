@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# Setuptools-scm generated version file
+src/deepextractor/_version.py
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+coverage.xml
+
+# Type checking
+.mypy_cache/
+
+# Linting
+.ruff_cache/
+
+# Jupyter
+notebooks/.ipynb_checkpoints/
+.ipynb_checkpoints/
+
+# Large generated data files — regenerate with the CLI scripts
+data/
+*.npy
+losses/
+evaluation/
+saved_predictions/
+
+# But DO track pretrained/ and assets/ via git-lfs (see .gitattributes)
+!pretrained/**
+!assets/**
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Docs build
+docs/_build/
+docs/api/_autosummary/

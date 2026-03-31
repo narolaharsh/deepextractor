@@ -14,6 +14,7 @@ for _nb in ["deepextractor_minimal.ipynb", "glitch_reconstruction_tutorial.ipynb
 project = "DeepExtractor"
 author = "Tom Dooney"
 copyright = "2025, Tom Dooney"
+html_title = "DeepExtractor"
 
 extensions = [
     "sphinx.ext.autodoc",

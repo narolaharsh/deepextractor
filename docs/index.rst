@@ -1,5 +1,5 @@
-DeepExtractor
-=============
+DeepExtractor Documentation
+===========================
 
 Deep learning framework for reconstructing gravitational wave signals and glitches from LIGO detector data.
 

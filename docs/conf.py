@@ -74,10 +74,11 @@ html_theme_options = {
         "--color-brand-primary":  "#0969da",
         "--color-brand-content":  "#0969da",
     },
-    "default_mode": "dark",
     "navigation_with_keys": True,
-    "top_of_page_button": "edit",
 }
+
+# Exclude build artefacts and prevent recursive notebook scanning
+exclude_patterns = ["_build", "**/_build", "**.ipynb_checkpoints"]
 
 # Do not re-execute notebooks during docs build
 nbsphinx_execute = "never"

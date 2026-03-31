@@ -1,5 +1,10 @@
 /* ── DeepExtractor custom dark theme ─────────────────────────────────────── */
 
+/* Force dark mode as default */
+:root {
+    color-scheme: dark;
+}
+
 /* Code blocks */
 [data-theme="dark"] div[class*="highlight"] {
     background: #161b27;

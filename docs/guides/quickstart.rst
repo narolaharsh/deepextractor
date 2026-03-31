@@ -69,8 +69,8 @@ Bundled dataset
 
 The package ships a sample of the `GravitySpy LIGO O3a high-confidence catalogue
 <https://doi.org/10.5281/zenodo.1476551>`_ at ``assets/data_o3a_sample.csv``.
-It contains **10 H1 examples per glitch class** (19 classes, 190 rows total),
-randomly sampled from high-confidence GravitySpy classifications.
+It contains **10 H1 examples per glitch class** (17 classes, 170 rows total),
+randomly sampled from high-confidence GravitySpy classifications with SNR > 15.
 It is used by the glitch reconstruction tutorial notebook.
 
 .. code-block:: python

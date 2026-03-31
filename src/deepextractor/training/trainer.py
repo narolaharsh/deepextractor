@@ -112,10 +112,12 @@ def main():
     # --- Device ---
     if args.device is not None:
         device = args.device
+    elif torch.cuda.is_available():
+        device = f"cuda:{torch.cuda.device_count() - 1}"
+    elif torch.backends.mps.is_available():
+        device = "mps"
     else:
-        device = (
-            f"cuda:{torch.cuda.device_count() - 1}" if torch.cuda.is_available() else "cpu"
-        )
+        device = "cpu"
 
     # --- Model ---
     model_name = args.model
@@ -181,7 +183,7 @@ def main():
     # --- Training loop ---
     train_losses, train_noise_losses, train_constraint_losses = [], [], []
     val_losses, val_noise_losses, val_constraint_losses = [], [], []
-    scaler = torch.cuda.amp.GradScaler()
+    scaler = torch.amp.GradScaler("cuda") if device.startswith("cuda") else torch.amp.GradScaler("cpu")
     early_stopping_counter = 0
     best_val_loss = float("inf")
 

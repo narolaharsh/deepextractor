@@ -20,6 +20,7 @@ Built for LIGO's O3 observing run (Hanford and Livingston detectors). Described 
 
    Simulated example <notebooks/deepextractor_minimal.ipynb>
    Reconstructing real LIGO O3 glitches <notebooks/glitch_reconstruction_tutorial.ipynb>
+   Training from scratch <notebooks/training_tutorial.ipynb>
 
 .. toctree::
    :maxdepth: 1

@@ -150,10 +150,10 @@ def main():
     with open(os.path.join(noise_type_path, f"scaler_{ext}.pkl"), "wb") as f:
         pickle.dump(scaler, f)
 
-    np.save(os.path.join(domain_path, f"glitch_train_scaled_{ext}"), glitch_train_scaled)
-    np.save(os.path.join(domain_path, f"background_train_scaled_{ext}"), bg_train_scaled)
-    np.save(os.path.join(domain_path, f"glitch_val_scaled_{ext}"), glitch_val_scaled)
-    np.save(os.path.join(domain_path, f"background_val_scaled_{ext}"), bg_val_scaled)
+    np.save(os.path.join(domain_path, "glitch_train_scaled"), glitch_train_scaled)
+    np.save(os.path.join(domain_path, "background_train_scaled"), bg_train_scaled)
+    np.save(os.path.join(domain_path, "glitch_val_scaled"), glitch_val_scaled)
+    np.save(os.path.join(domain_path, "background_val_scaled"), bg_val_scaled)
 
     print("Done. Data saved to", domain_path)
 

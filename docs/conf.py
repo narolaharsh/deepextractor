@@ -8,7 +8,7 @@ _here = os.path.dirname(__file__)
 _nb_src = os.path.join(_here, "..", "notebooks")
 _nb_dst = os.path.join(_here, "notebooks")
 os.makedirs(_nb_dst, exist_ok=True)
-for _nb in ["deepextractor_minimal.ipynb", "glitch_reconstruction_tutorial.ipynb"]:
+for _nb in ["deepextractor_minimal.ipynb", "glitch_reconstruction_tutorial.ipynb", "training_tutorial.ipynb"]:
     shutil.copy(os.path.join(_nb_src, _nb), os.path.join(_nb_dst, _nb))
 
 project = "DeepExtractor"

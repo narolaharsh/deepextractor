@@ -19,7 +19,8 @@ def train_fn(loader, model, model_name, optimizer, loss_fn, scaler, device):
         data = data.to(device=device)
         targets = targets.float().to(device=device)
 
-        with torch.cuda.amp.autocast():
+        autocast_device = "cuda" if device.startswith("cuda") else "cpu"
+        with torch.amp.autocast(autocast_device):
             predictions = model(data)
 
             if model_name == "UNET1D_diff":

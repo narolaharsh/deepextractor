@@ -68,7 +68,7 @@ docs = [
 all = ["deepextractor[generative,dev,docs]"]
 
 [project.urls]
-Repository = "https://github.com/tomdonoey/deepextractor"
+Repository = "https://github.com/tomdooney95/deepextractor"
 Paper = "https://arxiv.org/abs/2501.18423"
 
 [project.scripts]

@@ -58,10 +58,17 @@ If you use DeepExtractor in your work, please cite:
 
 .. code-block:: bibtex
 
-   @article{dooney2025deepextractor,
-     title   = {DeepExtractor: ...},
-     author  = {Dooney, Tom and others},
-     journal = {arXiv preprint arXiv:2501.18423},
-     year    = {2025},
-     url     = {https://arxiv.org/abs/2501.18423}
+   @article{s91m-c2jw,
+     title     = {Time-domain reconstruction of signals and glitches in gravitational wave data with deep learning},
+     author    = {Dooney, Tom and Narola, Harsh and Bromuri, Stefano and Curier, R. Lyana and Van Den Broeck, Chris and Caudill, Sarah and Tan, Daniel Stanley},
+     journal   = {Phys. Rev. D},
+     volume    = {112},
+     issue     = {4},
+     pages     = {044022},
+     numpages  = {24},
+     year      = {2025},
+     month     = {Aug},
+     publisher = {American Physical Society},
+     doi       = {10.1103/s91m-c2jw},
+     url       = {https://link.aps.org/doi/10.1103/s91m-c2jw}
    }

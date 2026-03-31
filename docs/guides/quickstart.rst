@@ -58,10 +58,29 @@ To use the real O3 noise variant:
 Notebooks
 ---------
 
-* :doc:`../../notebooks/deepextractor_example` — simulated LIGO/Virgo noise example
-  (uses ``CHECKPOINT_BILBY`` + ``scaler_bilby.pkl``)
-* :doc:`../../notebooks/glitch_reconstruction_tutorial` — real O3 glitch reconstruction
-  (uses ``CHECKPOINT_REAL`` + ``scaler.pkl``)
+* :doc:`../../notebooks/deepextractor_minimal` — minimal end-to-end example: simulate noise,
+  inject a sine-Gaussian wavelet, and reconstruct with ``DeepExtractorModel``
+
+* :doc:`../../notebooks/glitch_reconstruction_tutorial` — reconstruct real LIGO O3a glitches
+  using the bundled GravitySpy sample dataset
+
+Bundled dataset
+---------------
+
+The package ships a sample of the `GravitySpy LIGO O3a high-confidence catalogue
+<https://doi.org/10.5281/zenodo.1476551>`_ at ``assets/data_o3a_sample.csv``.
+It contains **10 high-SNR H1 examples per glitch class** (19 classes, 190 rows total)
+and is used by the glitch reconstruction tutorial notebook.
+
+.. code-block:: python
+
+   import pandas as pd
+   import importlib.resources as resources
+
+   with resources.path("deepextractor", "assets") as assets:
+       df = pd.read_csv(assets / "data_o3a_sample.csv")
+
+   print(df["label"].value_counts())
 
 CLI tools
 ---------

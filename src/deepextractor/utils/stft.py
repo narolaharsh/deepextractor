@@ -9,9 +9,9 @@ def apply_stft(array, n_fft, hop_length, win_length, window):
 
     Parameters
     ----------
-    array : array-like, shape (N, T) or (T,)
-        Input time-series. Batched (N, T) is recommended; a 1D input will
-        produce a (F, 2, T) tensor which is not compatible with UNET2D.
+    array : array-like, shape (N, time) or (time,)
+        Input time-series. Batched (N, time) is recommended; a 1D input will
+        produce a (F, 2, time) tensor which is not compatible with UNET2D.
     n_fft, hop_length, win_length : int
         STFT parameters.
     window : torch.Tensor
@@ -47,7 +47,7 @@ def apply_istft(stft_array, n_fft, hop_length, win_length, window):
 
     Returns
     -------
-    torch.Tensor, shape (N, T)
+    torch.Tensor, shape (N, time)
     """
     magnitude = stft_array[:, 0, :, :]
     phase = stft_array[:, 1, :, :]

@@ -63,7 +63,7 @@ def plot_examples(
     plt.close()
 
 
-def plot_q_transform(data, srate=4096.0, crop=None, whiten=True, ax=None, colourbar=True):
+def plot_q_transform(data, srate=4096.0, crop=None, whiten=True, ax=None, colourbar=True, qrange = [4, 64], frange = [10, 1200]):
     """
     Plot the Q-transform of a time series using gwpy.
 
@@ -85,8 +85,8 @@ def plot_q_transform(data, srate=4096.0, crop=None, whiten=True, ax=None, colour
     data = TimeSeries(data, sample_rate=srate)
 
     q_scan = data.q_transform(
-        qrange=[4, 64],
-        frange=[1, 1290],
+        qrange=qrange,
+        frange=[10, 1200],
         tres=0.002,
         fres=0.5,
         whiten=whiten,

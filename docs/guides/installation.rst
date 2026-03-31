@@ -19,7 +19,7 @@ Install from source
 
 .. code-block:: bash
 
-   git clone https://github.com/tomdonoey/deepextractor.git
+   git clone https://github.com/tomdooney/deepextractor.git
    cd deepextractor
    pip install -e ".[dev]"
 

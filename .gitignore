@@ -43,8 +43,10 @@ losses/
 evaluation/
 saved_predictions/
 
-# But DO track pretrained/ and assets/ via git-lfs (see .gitattributes)
-!pretrained/**
+# pretrained/ is a local cache for HuggingFace weights — do not commit
+pretrained/
+
+# Track bundled assets (scalers, cdvgan weights) via git-lfs (see .gitattributes)
 !assets/**
 
 # IDE
@@ -57,3 +59,4 @@ saved_predictions/
 # Docs build
 docs/_build/
 docs/api/_autosummary/
+docs/notebooks/

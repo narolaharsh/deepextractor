@@ -41,11 +41,5 @@ Documentation dependencies:
 Pretrained weights
 ------------------
 
-Pretrained model weights are stored in the ``pretrained/`` directory and tracked with git-lfs.
-After cloning, run:
-
-.. code-block:: bash
-
-   git lfs pull
-
-to download the weight files.
+Pretrained model weights are hosted on `Hugging Face Hub <https://huggingface.co/tomdooney/deepextractor>`_
+and are downloaded automatically on first use — no manual step required.

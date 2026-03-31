@@ -10,6 +10,7 @@ Built for LIGO's O3 observing run (Hanford and Livingston detectors). Described 
    :maxdepth: 2
    :caption: User Guide
 
+   guides/overview
    guides/installation
    guides/quickstart
    guides/training

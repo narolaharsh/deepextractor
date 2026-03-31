@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["gravitational-waves", "LIGO", "deep-learning", "glitch", "signal-processing"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Physics",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",

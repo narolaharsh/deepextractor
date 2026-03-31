@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - YYYY-MM-DD
 
 ### Added
 - Initial pip-installable package structure
@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `deepextractor.generation` — synthetic glitch signal generators and data generation scripts
 - `deepextractor.evaluation` — simulated evaluation metrics
 - `deepextractor.utils` — checkpoints, signal processing, metrics, I/O, visualization
-- Sphinx documentation scaffold with ReadTheDocs configuration
+- Sphinx documentation with Furo dark theme
 - CLI entry points: `deepextractor-train`, `deepextractor-generate`, `deepextractor-specgen`, `deepextractor-evaluate`
-- Pretrained checkpoint weights tracked via git-lfs
+- Pretrained checkpoint weights hosted on Hugging Face Hub, downloaded automatically on first use
+- Bundled GravitySpy O3a sample dataset (`assets/data_o3a_sample.csv`) — 170 high-confidence glitch examples across 17 classes
+- Jupyter notebook tutorials: minimal example, glitch reconstruction, training from scratch

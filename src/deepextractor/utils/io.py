@@ -7,7 +7,6 @@ import torch.nn as nn
 from gwpy.timeseries import TimeSeries
 from torch.utils.data import DataLoader
 
-from deepextractor.data.datasets import SpectrogramDataset, TimeSeriesDataset
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +24,7 @@ def get_loaders(
     time_domain=True,
 ):
     """Return train and validation DataLoaders."""
+    from deepextractor.data.datasets import SpectrogramDataset, TimeSeriesDataset
     if time_domain:
         train_ds = TimeSeriesDataset(
             input_npy=train_dir,

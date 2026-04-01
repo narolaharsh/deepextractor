@@ -15,14 +15,15 @@ logger = logging.getLogger(__name__)
 
 
 def _default_scaler_path() -> str:
-    """Resolve the bundled scaler path relative to the package source tree."""
-    # src/deepextractor/model.py -> src/deepextractor/ -> src/ -> repo root
-    candidate = Path(__file__).parents[2] / "assets" / "scaler_bilby.pkl"
-    if candidate.is_file():
-        return str(candidate)
+    """Resolve the bundled scaler path using importlib.resources."""
+    import importlib.resources as pkg_resources
+    ref = pkg_resources.files("deepextractor") / "assets" / "scaler_bilby.pkl"
+    path = Path(str(ref))
+    if path.is_file():
+        return str(path)
     raise FileNotFoundError(
-        f"Could not find scaler_bilby.pkl at {candidate}. "
-        "Pass scaler_path= explicitly or ensure the assets/ directory is present."
+        f"Could not find bundled scaler_bilby.pkl. "
+        "Pass scaler_path= explicitly or ensure the package was installed correctly."
     )
 
 

@@ -81,6 +81,9 @@ deepextractor-evaluate = "deepextractor.evaluation.simulate:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+deepextractor = ["assets/*", "assets/**/*"]
+
 [tool.setuptools_scm]
 # Derives version from git tags (e.g., v0.1.0 → 0.1.0)
 write_to = "src/deepextractor/_version.py"

@@ -1,5 +1,9 @@
 # DeepExtractor
 
+[![PyPI](https://img.shields.io/pypi/v/deepextractor)](https://pypi.org/project/deepextractor/)
+[![Documentation](https://readthedocs.org/projects/deepextractor/badge/?version=latest)](https://deepextractor.readthedocs.io/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+
 Deep learning framework for reconstructing gravitational-wave signals and glitches from LIGO detector data.
 
 Built for LIGO's O3 observing run (Hanford and Livingston detectors). Described in the paper:

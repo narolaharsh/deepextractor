@@ -8,6 +8,8 @@ Built for LIGO's O3 observing run (Hanford and Livingston detectors). Described 
 > Dooney, Narola, Bromuri, Curier, Van Den Broeck, Caudill, Tan — *Phys. Rev. D* 112, 044022 (2025)
 > [10.1103/s91m-c2jw](https://link.aps.org/doi/10.1103/s91m-c2jw)
 
+**[Documentation](https://deepextractor.readthedocs.io/)** | **[GitHub](https://github.com/tomdooney95/deepextractor)** | **[PyPI](https://pypi.org/project/deepextractor/)**
+
 ---
 
 ## How it works

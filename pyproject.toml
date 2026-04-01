@@ -69,7 +69,8 @@ all = ["deepextractor[generative,dev,docs]"]
 
 [project.urls]
 Repository = "https://github.com/tomdooney95/deepextractor"
-Paper = "https://arxiv.org/abs/2501.18423"
+Documentation = "https://deepextractor.readthedocs.io/"
+Paper = "https://link.aps.org/doi/10.1103/s91m-c2jw"
 
 [project.scripts]
 deepextractor-train    = "deepextractor.training.trainer:main"

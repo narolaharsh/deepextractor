@@ -40,7 +40,7 @@ notebooks/.ipynb_checkpoints/
 data/
 *.npy
 losses/
-evaluation/
+/evaluation/
 saved_predictions/
 
 # pretrained/ is a local cache for HuggingFace weights — do not commit

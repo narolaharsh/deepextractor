@@ -90,7 +90,10 @@ write_to = "src/deepextractor/_version.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --cov=deepextractor --cov-report=term-missing"
+addopts = "-v --cov=deepextractor --cov-report=term-missing -m 'not slow'"
+markers = [
+    "slow: integration tests that make real external calls (deselected by default)",
+]
 
 [tool.ruff]
 src = ["src"]

@@ -45,7 +45,7 @@ SIGNAL_FUNCTION_MAP = {
 
 def generate_gaussian_noise(mean, std_dev, num_samples, sample_shape, bilby_noise=False,
                             sample_rate=SAMPLE_RATE, duration=T,
-                            minimum_frequency=MINIMUM_FREQUENCY):
+                            minimum_frequency=MINIMUM_FREQUENCY, detector="L1"):
     """Generate Gaussian noise samples (pycbc or bilby)."""
     if bilby_noise:
         try:
@@ -57,7 +57,7 @@ def generate_gaussian_noise(mean, std_dev, num_samples, sample_shape, bilby_nois
             ) from e
         gaussian_noise_samples = []
         for i in tqdm(range(num_samples), desc="Generating bilby noise..."):
-            ifos = bilby.gw.detector.InterferometerList(["L1"])
+            ifos = bilby.gw.detector.InterferometerList([detector])
             for ifo in ifos:
                 ifo.minimum_frequency = minimum_frequency
             ifos.set_strain_data_from_power_spectral_densities(

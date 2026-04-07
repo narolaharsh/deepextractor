@@ -54,7 +54,7 @@ pip install -e ".[dev]"
 import numpy as np
 import deepextractor
 
-# Load model (bilby noise variant by default)
+# Load model (Trained on the projected O4 noise curves)
 model = deepextractor.DeepExtractorModel()
 
 # Reconstruct — extract the transient from noisy strain

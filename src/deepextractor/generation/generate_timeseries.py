@@ -133,7 +133,7 @@ def main():
     os.makedirs(domain_path, exist_ok=True)
 
     mean = 0
-    std_dev = np.sqrt(SAMPLE_RATE)
+    std_dev = np.sqrt(SAMPLE_RATE / 2)  # PyCBC convention: variance = SAMPLE_RATE / 2
 
     train_noise = generate_gaussian_noise(mean, std_dev, args.num_train, (LENGTH,), bilby_noise)
     val_noise = generate_gaussian_noise(mean, std_dev, args.num_val, (LENGTH,), bilby_noise)

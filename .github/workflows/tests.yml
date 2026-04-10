@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
@@ -23,6 +23,8 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q software-properties-common
+          sudo add-apt-repository -y ppa:ligo-software/ligo-stable
+          sudo apt-get update -q
           sudo apt-get install -y -q \
             libhdf5-dev \
             libfftw3-dev \

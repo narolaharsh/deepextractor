@@ -26,8 +26,6 @@ jobs:
             libhdf5-dev \
             libfftw3-dev \
             libgsl-dev \
-            libframel-dev \
-            libmetaio-dev \
             pkg-config
 
       - name: Install package and dev dependencies

@@ -38,6 +38,7 @@ notebooks/.ipynb_checkpoints/
 
 # Large generated data files — regenerate with the CLI scripts
 data/
+!src/deepextractor/data/
 *.npy
 losses/
 /evaluation/

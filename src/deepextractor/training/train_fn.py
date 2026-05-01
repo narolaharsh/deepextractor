@@ -160,3 +160,65 @@ def train_fn_td(
     if residual_channels:
         return tot / n, bg_acc / n, sig_acc / n, res_acc / n
     return tot / n, bg_acc / n, sig_acc / n
+
+
+def eval_fn_td(
+    loader,
+    model,
+    device,
+    *,
+    residual_channels: bool = False,
+    residual_weight: float = 1.0,
+) -> tuple:
+    """Evaluate the two-detector time-domain separation model on a validation set.
+
+    Mirrors the signature of :func:`train_fn_td` but runs under ``torch.no_grad``
+    and does not update weights. Model is restored to train mode afterwards.
+
+    Returns:
+        (avg_total, avg_bg, avg_sig)           if residual_channels=False
+        (avg_total, avg_bg, avg_sig, avg_res)  if residual_channels=True
+    """
+    loss_fn = nn.MSELoss()
+    model.eval()
+    tot = bg_acc = sig_acc = res_acc = 0.0
+    n_samples = 0
+
+    with torch.no_grad():
+        for data, targets in loader:
+            data = data.to(device)
+            targets = targets.float().to(device)
+            preds = model(data)
+
+            if residual_channels:
+                pred_bg  = preds[:, 0:2]
+                pred_sig = preds[:, 2:4]
+                pred_res = preds[:, 4:6]
+                tgt_bg   = targets[:, 0:2]
+                tgt_sig  = targets[:, 2:4]
+                res_tgt  = data - (tgt_bg + tgt_sig)
+                bg_loss  = loss_fn(pred_bg,  tgt_bg)
+                sig_loss = loss_fn(pred_sig, tgt_sig)
+                res_loss = loss_fn(pred_res, res_tgt)
+                loss = 0.5 * (bg_loss + sig_loss) + residual_weight * res_loss
+                res_acc += res_loss.item() * data.size(0)
+            else:
+                pred_bg  = preds[:, 0:2]
+                pred_sig = preds[:, 2:4]
+                tgt_bg   = targets[:, 0:2]
+                tgt_sig  = targets[:, 2:4]
+                bg_loss  = loss_fn(pred_bg,  tgt_bg)
+                sig_loss = loss_fn(pred_sig, tgt_sig)
+                loss = 0.5 * (bg_loss + sig_loss)
+
+            bs = data.size(0)
+            tot     += loss.item()    * bs
+            bg_acc  += bg_loss.item() * bs
+            sig_acc += sig_loss.item() * bs
+            n_samples += bs
+
+    model.train()
+    n = max(1, n_samples)
+    if residual_channels:
+        return tot / n, bg_acc / n, sig_acc / n, res_acc / n
+    return tot / n, bg_acc / n, sig_acc / n

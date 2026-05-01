@@ -283,6 +283,91 @@ def print_summary(results: dict):
 
 
 # ---------------------------------------------------------------------------
+# Plots
+# ---------------------------------------------------------------------------
+
+def save_plots(results: dict, out_dir: Path):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    labels = list(results.keys())
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+    # --- 1. Mismatch distributions per class (H1 and L1 side-by-side) ---
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
+    for ax, ifo, key in zip(axes, ["H1", "L1"], ["match_h1_sig", "match_l1_sig"]):
+        for i, (label, r) in enumerate(results.items()):
+            mismatch = (1 - np.array([v for v in r[key] if not np.isnan(v)])) * 100
+            ax.hist(mismatch, bins=30, alpha=0.6, label=label, color=colors[i % len(colors)])
+        ax.set_xlabel("Mismatch (%)", fontsize=12)
+        ax.set_ylabel("Count" if ifo == "H1" else "", fontsize=12)
+        ax.set_title(f"{ifo} signal mismatch", fontsize=12)
+        ax.legend(fontsize=9)
+    fig.suptitle("Signal mismatch distributions", fontsize=13)
+    fig.tight_layout()
+    fig.savefig(out_dir / "mismatch_distributions.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    logger.info("Saved mismatch_distributions.png")
+
+    # --- 2. Match vs SNR scatter (H1 signal, one panel per class) ---
+    ncols = min(len(labels), 4)
+    nrows = (len(labels) + ncols - 1) // ncols
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 3.5 * nrows), squeeze=False)
+    for idx, (label, r) in enumerate(results.items()):
+        ax = axes[idx // ncols][idx % ncols]
+        snr = np.array(r["snr"])
+        m_h1 = np.array(r["match_h1_sig"])
+        m_l1 = np.array(r["match_l1_sig"])
+        valid = ~np.isnan(m_h1) & ~np.isnan(m_l1)
+        ax.scatter(snr[valid], m_h1[valid], s=8, alpha=0.5, label="H1", color=colors[0])
+        ax.scatter(snr[valid], m_l1[valid], s=8, alpha=0.5, label="L1", color=colors[1])
+        ax.set_title(label, fontsize=10)
+        ax.set_xlabel("Injected SNR", fontsize=9)
+        ax.set_ylabel("Match", fontsize=9)
+        ax.set_ylim(0, 1.05)
+        ax.legend(fontsize=8)
+    # Hide unused axes
+    for idx in range(len(labels), nrows * ncols):
+        axes[idx // ncols][idx % ncols].set_visible(False)
+    fig.suptitle("Match vs injected SNR (signal reconstruction)", fontsize=12)
+    fig.tight_layout()
+    fig.savefig(out_dir / "match_vs_snr.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    logger.info("Saved match_vs_snr.png")
+
+    # --- 3. Mean match bar chart (signal + background, H1 and L1) ---
+    x = np.arange(len(labels))
+    width = 0.2
+    fig, ax = plt.subplots(figsize=(max(8, len(labels) * 2), 4))
+    for offset, key, ifo, component in zip(
+        [-1.5, -0.5, 0.5, 1.5],
+        ["match_h1_sig", "match_l1_sig", "match_h1_bg", "match_l1_bg"],
+        ["H1", "L1", "H1", "L1"],
+        ["signal", "signal", "background", "background"],
+    ):
+        means = []
+        errs  = []
+        for r in results.values():
+            arr = np.array([v for v in r[key] if not np.isnan(v)])
+            means.append(arr.mean())
+            errs.append(arr.std() / np.sqrt(len(arr)))
+        ax.bar(x + offset * width, means, width, yerr=errs, capsize=3,
+               label=f"{ifo} {component}", alpha=0.8)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=15, ha="right")
+    ax.set_ylabel("Mean match")
+    ax.set_ylim(0, 1.05)
+    ax.axhline(1.0, color="k", lw=0.5, ls="--")
+    ax.legend(fontsize=9, ncol=2)
+    ax.set_title("Mean match per class — signal and background", fontsize=12)
+    fig.tight_layout()
+    fig.savefig(out_dir / "mean_match_bar.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    logger.info("Saved mean_match_bar.png")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -376,6 +461,9 @@ def main():
             row += [f"{np.mean(r['mse_h1_sig']):.4e}", f"{np.mean(r['mse_l1_sig']):.4e}"]
             writer.writerow(row)
     logger.info("Summary CSV saved to %s", csv_path)
+
+    # --- Plots ---
+    save_plots(results, out_dir)
 
 
 if __name__ == "__main__":

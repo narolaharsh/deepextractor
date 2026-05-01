@@ -22,7 +22,15 @@ except PackageNotFoundError:
     # Running from source without pip install -e .
     __version__ = "0.0.0.dev"
 
-from deepextractor.model import DeepExtractorModel
-from deepextractor.api import extract, reconstruct
+from deepextractor.model import DeepExtractorModel, DeepExtractorSeparator, SeparationResult
+from deepextractor.api import extract, reconstruct, separate
 
-__all__ = ["__version__", "DeepExtractorModel", "reconstruct", "extract"]
+__all__ = [
+    "__version__",
+    "DeepExtractorModel",
+    "DeepExtractorSeparator",
+    "SeparationResult",
+    "reconstruct",
+    "extract",
+    "separate",
+]

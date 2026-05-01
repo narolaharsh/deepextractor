@@ -3,11 +3,12 @@
 import logging
 import pickle
 from pathlib import Path
+from typing import NamedTuple, Union
 
 import numpy as np
 import torch
 
-from deepextractor.models.architectures import UNET2D
+from deepextractor.models.architectures import UNET1D_LSTM_ATT, UNET2D
 from deepextractor.utils.checkpoints import CHECKPOINT_BILBY, load_torch_model
 from deepextractor.utils.stft import apply_istft, apply_stft
 
@@ -154,3 +155,138 @@ class DeepExtractorModel:
         """
         noisy_input = np.asarray(noisy_input, dtype=np.float64)
         return noisy_input - self.background(noisy_input)
+
+
+class SeparationResult(NamedTuple):
+    """Outputs of :meth:`DeepExtractorSeparator.separate`.
+
+    All arrays have shape ``(T,)`` for single inputs or ``(N, T)`` for batches.
+    """
+
+    h1_signal: np.ndarray
+    l1_signal: np.ndarray
+    h1_background: np.ndarray
+    l1_background: np.ndarray
+
+
+class DeepExtractorSeparator:
+    """Two-detector time-domain signal/glitch separator.
+
+    Wraps a pretrained :class:`~deepextractor.models.UNET1D_LSTM_ATT` model and
+    a :class:`~deepextractor.data.ChannelStandardScaler` to expose a clean
+    inference API for separating H1+L1 strain into signal and background
+    components in the time domain.
+
+    Parameters
+    ----------
+    checkpoint_path : str | Path
+        Path to the ``.pth.tar`` checkpoint saved during training.
+    scaler : ChannelStandardScaler | str | Path | None
+        Per-channel input scaler. Pass a fitted
+        :class:`~deepextractor.data.ChannelStandardScaler` instance, a path to
+        a pickled scaler, or ``None`` to skip scaling (not recommended —
+        the model expects standard-scaled inputs).
+    device : str | torch.device | None
+        Compute device. Auto-detects CUDA if available when ``None``.
+    model_kwargs : dict | None
+        Override keyword arguments forwarded to :class:`UNET1D_LSTM_ATT`.
+        By default uses ``in_channels=2, out_channels=4``.
+    """
+
+    def __init__(
+        self,
+        checkpoint_path: Union[str, Path],
+        scaler=None,
+        device: Union[str, torch.device, None] = None,
+        model_kwargs: dict | None = None,
+    ):
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = torch.device(device)
+
+        # Load scaler
+        if scaler is None:
+            self._scaler = None
+            logger.warning(
+                "No scaler provided — inputs will not be normalised. "
+                "The model expects standard-scaled inputs."
+            )
+        elif isinstance(scaler, (str, Path)):
+            with open(scaler, "rb") as f:
+                self._scaler = pickle.load(f)
+        else:
+            self._scaler = scaler  # assume pre-fitted ChannelStandardScaler
+
+        # Build model
+        kwargs = {"in_channels": 2, "out_channels": 4}
+        if model_kwargs:
+            kwargs.update(model_kwargs)
+        self._model = UNET1D_LSTM_ATT(**kwargs)
+        self._model.to(self.device)
+
+        # Load checkpoint weights
+        checkpoint_path = Path(checkpoint_path)
+        ckpt = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
+        state = ckpt.get("state_dict", ckpt)
+        self._model.load_state_dict(state)
+        self._model.eval()
+        logger.info("Loaded separator checkpoint from %s", checkpoint_path)
+
+    def separate(
+        self, h1: np.ndarray, l1: np.ndarray
+    ) -> SeparationResult:
+        """Separate H1 and L1 strain into signal and background components.
+
+        Parameters
+        ----------
+        h1 : np.ndarray
+            H1 strain. Shape ``(T,)`` or ``(N, T)``.
+        l1 : np.ndarray
+            L1 strain. Same shape as ``h1``.
+
+        Returns
+        -------
+        SeparationResult
+            Named tuple with fields ``h1_signal``, ``l1_signal``,
+            ``h1_background``, ``l1_background``, each of the same shape as
+            the inputs.
+        """
+        h1 = np.asarray(h1, dtype=np.float32)
+        l1 = np.asarray(l1, dtype=np.float32)
+
+        single = h1.ndim == 1
+        if single:
+            h1 = h1[np.newaxis, :]
+            l1 = l1[np.newaxis, :]
+
+        # Stack to (N, 2, T)
+        x = np.stack([h1, l1], axis=1)
+
+        if self._scaler is not None:
+            x = self._scaler.transform(x)
+
+        tensor = torch.tensor(x, dtype=torch.float32).to(self.device)
+
+        with torch.no_grad():
+            out = self._model(tensor)  # (N, 4, T)
+
+        out_np = out.cpu().numpy()
+
+        # Output channel layout: [h1_bg, l1_bg, h1_sig, l1_sig]
+        h1_bg  = out_np[:, 0, :]
+        l1_bg  = out_np[:, 1, :]
+        h1_sig = out_np[:, 2, :]
+        l1_sig = out_np[:, 3, :]
+
+        if single:
+            h1_bg  = h1_bg[0]
+            l1_bg  = l1_bg[0]
+            h1_sig = h1_sig[0]
+            l1_sig = l1_sig[0]
+
+        return SeparationResult(
+            h1_signal=h1_sig,
+            l1_signal=l1_sig,
+            h1_background=h1_bg,
+            l1_background=l1_bg,
+        )

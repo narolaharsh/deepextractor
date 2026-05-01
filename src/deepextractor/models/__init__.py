@@ -6,11 +6,13 @@ from deepextractor.models.architectures import (
     DnCNN1D,
     ModifiedAutoencoder2D,
     UNET1D,
+    UNET1D_LSTM_ATT,
     UNET2D,
 )
 
 __all__ = [
     "UNET1D",
+    "UNET1D_LSTM_ATT",
     "UNET2D",
     "DnCNN1D",
     "Autoencoder1D",

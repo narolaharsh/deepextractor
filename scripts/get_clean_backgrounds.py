@@ -104,8 +104,9 @@ for run, cfg in RUNS.items():
         print(f"{'─' * 60}")
 
         site = IFO_SITE[ifo]
-        tstarts = np.load(f"{OMICRON_DIR}{site}_{run.lower()}_tstart.npy")
-        tends   = np.load(f"{OMICRON_DIR}{site}_{run.lower()}_tend.npy")
+        triggers = np.load(f"{OMICRON_DIR}{site}_{run.lower()}_triggers.npz")
+        tstarts  = triggers["tstart"]
+        tends    = triggers["tend"]
 
         flag = f'{ifo}:DMT-ANALYSIS_READY:1'
         print(f"  Querying {flag} ...")

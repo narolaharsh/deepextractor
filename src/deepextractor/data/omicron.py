@@ -218,7 +218,7 @@ def save_omicron_triggers(
     prefix: str,
     output_dir: str | Path = ".",
 ) -> None:
-    """Save trigger arrays to ``<output_dir>/<prefix>_<key>.npy`` for each key.
+    """Save trigger arrays to ``<output_dir>/<prefix>_triggers.npz``.
 
     Args:
         triggers: Dict returned by fetch_omicron_triggers (peak_time, tstart,
@@ -228,9 +228,6 @@ def save_omicron_triggers(
     """
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
-    for key, arr in triggers.items():
-        np.save(out / f"{prefix}_{key}", arr)
-    logger.info(
-        "Saved %s_{%s}.npy → %s",
-        prefix, ",".join(triggers.keys()), out.resolve(),
-    )
+    path = out / f"{prefix}_triggers"
+    np.savez(path, **triggers)
+    logger.info("Saved %s_triggers.npz → %s", prefix, out.resolve())

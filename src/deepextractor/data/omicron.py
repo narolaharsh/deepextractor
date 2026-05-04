@@ -186,7 +186,10 @@ def fetch_omicron_triggers(
         fmt = "ligolw"
     logger.info("Detected trigger file format: %s", fmt)
 
-    events = EventTable.read(trigger_files, tablename="sngl_burst", format=fmt)
+    if fmt == "hdf5":
+        events = EventTable.read(trigger_files, path="sngl_burst", format=fmt)
+    else:
+        events = EventTable.read(trigger_files, tablename="sngl_burst", format=fmt)
     peak_times = np.asarray(events["peak_time"], dtype=np.float64)
     durations  = np.asarray(events["duration"],  dtype=np.float64)
     logger.info("Loaded %d triggers", len(peak_times))

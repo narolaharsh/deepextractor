@@ -1,41 +1,57 @@
-import numpy as np
+"""Fetch and save Omicron trigger peak times and durations for H1.
 
-from gwtrigfind import find_trigger_files
-from gwpy.table import EventTable
+Must be run on the LHO site cluster (ldas-pcdev*.ligo-wa.caltech.edu)
+where Omicron trigger files are available via gwtrigfind.
 
-start = 1238166018  # O3a start
-end   = 1253977218  # O3a end
-hoft_channel = 'H1:GDS-CALIB_STRAIN'
+Output files are saved as <out>/<ifo>_<run>_peak_times.npy and
+<out>/<ifo>_<run>_durations.npy, ready to be committed to the repo
+and used by get_clean_backgrounds.py on CIT.
 
-omi_files_o3a = find_trigger_files(hoft_channel, 'omicron', start, end)
-print(omi_files_o3a[:3])
+Example
+-------
+    python scripts/get_omicron_triggers_H1.py --runs O3a O3b --out triggers/
+    python scripts/get_omicron_triggers_H1.py --runs O2 O3 O4 --out triggers/
+"""
 
-omi_events_o3a = EventTable.read(omi_files_o3a, tablename='sngl_burst', format='ligolw')
-print(omi_events_o3a[:3])
+import argparse
+from pathlib import Path
 
-hanford_o3a_peak_times = np.asarray(omi_events_o3a['peak_time'])
-hanford_o3a_durations  = np.asarray(omi_events_o3a['duration'])
-print(hanford_o3a_peak_times.shape, hanford_o3a_durations.shape)
+from deepextractor.data.omicron import (
+    RUN_PERIODS,
+    fetch_omicron_triggers,
+    save_omicron_triggers,
+)
 
-np.save('hanford_o3a_peak_times', hanford_o3a_peak_times)
-np.save('hanford_o3a_durations',  hanford_o3a_durations)
+IFO = 'H1'
 
-hanford_o3a_peak_times = None
-hanford_o3a_durations  = None
-omi_events_o3a         = None
 
-start = 1256655618  # O3b start
-end   = 1269363618  # O3b end
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument(
+        '--runs', nargs='+', required=True,
+        choices=sorted(RUN_PERIODS),
+        metavar='RUN',
+        help=f'Observing run(s) to process. Choices: {sorted(RUN_PERIODS)}',
+    )
+    p.add_argument(
+        '--out', type=Path, default=Path('triggers'),
+        help='Output directory for .npy files (default: triggers/)',
+    )
+    return p.parse_args()
 
-omi_files_o3b = find_trigger_files(hoft_channel, 'omicron', start, end)
-print(omi_files_o3b[:3])
 
-omi_events_o3b = EventTable.read(omi_files_o3b, tablename='sngl_burst', format='ligolw')
-print(omi_events_o3b[:3])
+def main() -> None:
+    args = parse_args()
+    args.out.mkdir(parents=True, exist_ok=True)
 
-hanford_o3b_peak_times = np.asarray(omi_events_o3b['peak_time'])
-hanford_o3b_durations  = np.asarray(omi_events_o3b['duration'])
-print(hanford_o3b_peak_times.shape, hanford_o3b_durations.shape)
+    for run in args.runs:
+        gps_start, gps_end = RUN_PERIODS[run]
+        print(f'\n{IFO}  {run}  GPS [{gps_start}, {gps_end})')
+        peak_times, durations = fetch_omicron_triggers(IFO, gps_start, gps_end)
+        prefix = f'{IFO.lower()}_{run.lower()}'
+        save_omicron_triggers(peak_times, durations, prefix, args.out)
 
-np.save('hanford_o3b_peak_times', hanford_o3b_peak_times)
-np.save('hanford_o3b_durations',  hanford_o3b_durations)
+
+if __name__ == '__main__':
+    main()

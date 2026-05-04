@@ -1,52 +1,57 @@
-import matplotlib
+"""Fetch and save Omicron trigger peak times and durations for L1.
 
-from gwtrigfind import find_trigger_files
-from gwpy.table import (Table, EventTable)
-from gwpy.table.filters import in_segmentlist
-from gwpy.segments import DataQualityFlag
-from gwpy.time import tconvert
-from gwpy.timeseries import TimeSeries
-from gwpy.segments import Segment, SegmentList
+Must be run on the LLO site cluster (ldas-pcdev*.ligo-la.caltech.edu)
+where Omicron trigger files are available via gwtrigfind.
 
-start = 1238166018 #O3a start
-end = 1253977218 #O3a end
-hoft_channel = 'L1:GDS-CALIB_STRAIN'
+Output files are saved as <out>/<ifo>_<run>_peak_times.npy and
+<out>/<ifo>_<run>_durations.npy, ready to be committed to the repo
+and used by get_clean_backgrounds.py on CIT.
 
-omi_files_o3a = find_trigger_files(hoft_channel, 'omicron', start, end)
-print(omi_files_o3a[:3])
+Example
+-------
+    python scripts/get_omicron_triggers_L1.py --runs O3a O3b --out triggers/
+    python scripts/get_omicron_triggers_L1.py --runs O2 O3 O4 --out triggers/
+"""
 
-omi_events_o3a = EventTable.read(omi_files_o3a, tablename='sngl_burst', format='ligolw')
-print(omi_events_o3a[:3])
+import argparse
+from pathlib import Path
 
-import numpy as np
-livingston_o3a_peak_times = np.asarray(omi_events_o3a['peak_time'])
-livingston_o3a_durations = np.asarray(omi_events_o3a['duration'])
-livingston_o3a_peak_times.shape, livingston_o3a_durations.shape
+from deepextractor.data.omicron import (
+    RUN_PERIODS,
+    fetch_omicron_triggers,
+    save_omicron_triggers,
+)
 
-print(livingston_o3a_peak_times[:10], livingston_o3a_durations[:10])
+IFO = 'L1'
 
-print(len(livingston_o3a_peak_times), len(livingston_o3a_durations))
 
-np.save('livingston_o3a_peak_times', livingston_o3a_peak_times)
-np.save('livingston_o3a_durations', livingston_o3a_durations)
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument(
+        '--runs', nargs='+', required=True,
+        choices=sorted(RUN_PERIODS),
+        metavar='RUN',
+        help=f'Observing run(s) to process. Choices: {sorted(RUN_PERIODS)}',
+    )
+    p.add_argument(
+        '--out', type=Path, default=Path('triggers'),
+        help='Output directory for .npy files (default: triggers/)',
+    )
+    return p.parse_args()
 
-livingston_o3a_peak_times = None
-livingston_o3a_durations = None
-omi_events_o3a = None
 
-start = 1256655618 #O3b start
-end = 1269363618 #O3b end
-hoft_channel = 'L1:GDS-CALIB_STRAIN'
+def main() -> None:
+    args = parse_args()
+    args.out.mkdir(parents=True, exist_ok=True)
 
-omi_files_o3b = find_trigger_files(hoft_channel, 'omicron', start, end)
-print(omi_files_o3b[:3])
+    for run in args.runs:
+        gps_start, gps_end = RUN_PERIODS[run]
+        print(f'\n{IFO}  {run}  GPS [{gps_start}, {gps_end})')
+        peak_times, durations = fetch_omicron_triggers(IFO, gps_start, gps_end)
+        prefix = f'{IFO.lower()}_{run.lower()}'
+        save_omicron_triggers(peak_times, durations, prefix, args.out)
 
-omi_events_o3b = EventTable.read(omi_files_o3b, tablename='sngl_burst', format='ligolw')
-print(omi_events_o3b[:3])
 
-livingston_o3b_peak_times = np.asarray(omi_events_o3b['peak_time'])
-livingston_o3b_durations = np.asarray(omi_events_o3b['duration'])
-livingston_o3b_peak_times.shape, livingston_o3b_durations.shape
-
-np.save('livingston_o3b_peak_times', livingston_o3b_peak_times)
-np.save('livingston_o3b_durations', livingston_o3b_durations)
+if __name__ == '__main__':
+    main()

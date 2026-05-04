@@ -177,7 +177,16 @@ def fetch_omicron_triggers(
         )
     logger.info("Found %d trigger file(s) — reading ...", len(trigger_files))
 
-    events = EventTable.read(trigger_files, tablename="sngl_burst", format="ligolw")
+    # Omicron writes LIGO-LW XML for older runs and HDF5 for newer runs.
+    # Detect from the first file's extension.
+    first = str(trigger_files[0])
+    if first.endswith(".h5") or first.endswith(".hdf5"):
+        fmt = "hdf5"
+    else:
+        fmt = "ligolw"
+    logger.info("Detected trigger file format: %s", fmt)
+
+    events = EventTable.read(trigger_files, tablename="sngl_burst", format=fmt)
     peak_times = np.asarray(events["peak_time"], dtype=np.float64)
     durations  = np.asarray(events["duration"],  dtype=np.float64)
     logger.info("Loaded %d triggers", len(peak_times))

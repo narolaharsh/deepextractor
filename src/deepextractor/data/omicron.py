@@ -175,11 +175,14 @@ def fetch_omicron_triggers(
             f"No Omicron trigger files found for {channel} GPS [{gps_start}, {gps_end}).  "
             "Confirm this script is running on the site cluster for this IFO."
         )
+
+    # gwtrigfind may return file:// URIs — strip to plain paths for h5py/readers
+    trigger_files = [str(f).replace("file://", "") for f in trigger_files]
     logger.info("Found %d trigger file(s) — reading ...", len(trigger_files))
 
     # Omicron writes LIGO-LW XML for older runs and HDF5 for newer runs.
     # Detect from the first file's extension.
-    first = str(trigger_files[0])
+    first = trigger_files[0]
     if first.endswith(".h5") or first.endswith(".hdf5"):
         fmt = "hdf5"
     else:

@@ -60,11 +60,11 @@ TARGET_COUNT     = 40_000
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def build_glitch_segments(peak_times, durations, buffer):
-    """Coalesced SegmentList covering each trigger plus a safety buffer."""
+def build_glitch_segments(tstarts, tends, buffer):
+    """Coalesced SegmentList covering each Omicron tile plus a safety buffer."""
     segs = SegmentList([
-        Segment(t - d / 2.0 - buffer, t + d / 2.0 + buffer)
-        for t, d in zip(peak_times, durations)
+        Segment(ts - buffer, te + buffer)
+        for ts, te in zip(tstarts, tends)
     ])
     segs.coalesce()
     return segs
@@ -104,14 +104,14 @@ for run, cfg in RUNS.items():
         print(f"{'─' * 60}")
 
         site = IFO_SITE[ifo]
-        peak_times = np.load(f"{OMICRON_DIR}{site}_{run.lower()}_peak_times.npy")
-        durations  = np.load(f"{OMICRON_DIR}{site}_{run.lower()}_durations.npy")
+        tstarts = np.load(f"{OMICRON_DIR}{site}_{run.lower()}_tstart.npy")
+        tends   = np.load(f"{OMICRON_DIR}{site}_{run.lower()}_tend.npy")
 
         flag = f'{ifo}:DMT-ANALYSIS_READY:1'
         print(f"  Querying {flag} ...")
         science_segs = DataQualityFlag.query(flag, run_start, run_end).active
 
-        glitch_segs = build_glitch_segments(peak_times, durations, TRIGGER_BUFFER)
+        glitch_segs = build_glitch_segments(tstarts, tends, TRIGGER_BUFFER)
         clean_segs  = science_segs - glitch_segs
 
         n_qualifying = sum(1 for s in clean_segs if float(s[1] - s[0]) >= MIN_SEG_DUR)

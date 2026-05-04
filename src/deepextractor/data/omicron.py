@@ -129,8 +129,8 @@ def fetch_omicron_triggers(
     gps_start: int,
     gps_end: int,
     channel: str | None = None,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Return Omicron glitch peak times and durations for a GPS interval.
+) -> dict[str, np.ndarray]:
+    """Return Omicron trigger parameters for a GPS interval.
 
     Args:
         ifo: Detector prefix — ``"L1"`` or ``"H1"``.
@@ -140,8 +140,11 @@ def fetch_omicron_triggers(
             Defaults to the standard strain channel for *ifo*.
 
     Returns:
-        ``(peak_times, durations)`` — both 1-D float64 numpy arrays with one
-        entry per Omicron trigger.
+        Dict with 1-D float64 arrays per trigger:
+          - ``peak_time``: GPS time of peak SNR
+          - ``tstart``:    GPS start of the Omicron Q-tile
+          - ``tend``:      GPS end of the Omicron Q-tile
+          - ``duration``:  tend - tstart (tile width in seconds)
 
     Raises:
         ValueError: If *ifo* is unrecognised and *channel* is not given.
@@ -190,38 +193,44 @@ def fetch_omicron_triggers(
     logger.info("Detected trigger file format: %s", fmt)
 
     if fmt == "hdf5":
-        # HDF5 Omicron columns: time, tstart, tend (no peak_time/duration)
         events = EventTable.read(trigger_files, path="triggers", format=fmt)
-        peak_times = np.asarray(events["time"],              dtype=np.float64)
-        durations  = np.asarray(events["tend"] - events["tstart"], dtype=np.float64)
+        peak_times = np.asarray(events["time"],   dtype=np.float64)
+        tstarts    = np.asarray(events["tstart"], dtype=np.float64)
+        tends      = np.asarray(events["tend"],   dtype=np.float64)
     else:
         events = EventTable.read(trigger_files, tablename="sngl_burst", format=fmt)
-        peak_times = np.asarray(events["peak_time"], dtype=np.float64)
-        durations  = np.asarray(events["duration"],  dtype=np.float64)
+        peak_times = np.asarray(events["peak_time"],             dtype=np.float64)
+        tstarts    = np.asarray(events["start_time"],            dtype=np.float64)
+        tends      = np.asarray(events["start_time"]
+                                + events["duration"],            dtype=np.float64)
+    durations = tends - tstarts
     logger.info("Loaded %d triggers", len(peak_times))
-    return peak_times, durations
+    return {
+        "peak_time": peak_times,
+        "tstart":    tstarts,
+        "tend":      tends,
+        "duration":  durations,
+    }
 
 
 def save_omicron_triggers(
-    peak_times: np.ndarray,
-    durations: np.ndarray,
+    triggers: dict[str, np.ndarray],
     prefix: str,
     output_dir: str | Path = ".",
 ) -> None:
-    """Save trigger arrays to ``<output_dir>/<prefix>_peak_times.npy`` and
-    ``<output_dir>/<prefix>_durations.npy``.
+    """Save trigger arrays to ``<output_dir>/<prefix>_<key>.npy`` for each key.
 
     Args:
-        peak_times: 1-D array of trigger peak times (GPS seconds).
-        durations: 1-D array of trigger durations (seconds).
+        triggers: Dict returned by fetch_omicron_triggers (peak_time, tstart,
+            tend, duration).
         prefix: Filename stem, e.g. ``"l1_o3a"``.
         output_dir: Destination directory (created if absent).
     """
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
-    np.save(out / f"{prefix}_peak_times", peak_times)
-    np.save(out / f"{prefix}_durations",  durations)
+    for key, arr in triggers.items():
+        np.save(out / f"{prefix}_{key}", arr)
     logger.info(
-        "Saved %s_peak_times.npy and %s_durations.npy → %s",
-        prefix, prefix, out.resolve(),
+        "Saved %s_{%s}.npy → %s",
+        prefix, ",".join(triggers.keys()), out.resolve(),
     )

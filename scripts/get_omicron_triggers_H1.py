@@ -48,9 +48,10 @@ def main() -> None:
     for run in args.runs:
         gps_start, gps_end = RUN_PERIODS[run]
         print(f'\n{IFO}  {run}  GPS [{gps_start}, {gps_end})')
-        peak_times, durations = fetch_omicron_triggers(IFO, gps_start, gps_end)
+        triggers = fetch_omicron_triggers(IFO, gps_start, gps_end)
+        print(f'  Loaded {len(triggers["peak_time"])} triggers')
         prefix = f'{IFO.lower()}_{run.lower()}'
-        save_omicron_triggers(peak_times, durations, prefix, args.out)
+        save_omicron_triggers(triggers, prefix, args.out)
 
 
 if __name__ == '__main__':

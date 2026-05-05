@@ -73,9 +73,11 @@ def plot_timeseries(backgrounds: dict, out: Path) -> None:
             idxs = np.random.choice(n, size=min(N_EXAMPLES, n), replace=False)
             for col, idx in enumerate(idxs):
                 ax = axes[row, col]
-                ax.plot(t, samples[idx], lw=0.5, color='steelblue')
+                w = samples[idx]
+                ax.plot(t, w, lw=0.5, color='steelblue')
                 ax.axhline(0, color='k', lw=0.5, ls='--', alpha=0.4)
                 ax.set_xlim(0, SAMPLE_DURATION)
+                ax.set_title(f'μ={w.mean():.4f}', fontsize=8)
                 if col == 0:
                     ax.set_ylabel(ifo, fontsize=10)
                 if row == len(IFOS) - 1:

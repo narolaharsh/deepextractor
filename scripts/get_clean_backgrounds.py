@@ -1,5 +1,5 @@
 """
-Build whitened background datasets for H1 and L1 across O3a and O3b.
+Build whitened background datasets for H1 and L1.
 
 Whitening strategy:
   - Each 36s context window is whitened independently using exactly 36s of data,
@@ -11,51 +11,51 @@ Whitening strategy:
     so usable regions tile without gaps or overlaps — no GPS time is whitened twice.
 
 Sample extraction:
-  - A 8s window slides through the 32s usable region with step DELTA_T = 4s,
-    yielding 7 overlapping samples per context window.
-  - Adjacent samples share 4s of content (50% overlap) but are distinct windows.
+  - A 8s window slides through the 32s usable region with step DELTA_T = 2s,
+    yielding 13 overlapping samples per context window.
+  - Adjacent samples share 6s of content but are distinct windows.
 
 Train/test split note:
   - Always split by GPS time range, not sample index — overlapping samples within
     a context share the same underlying noise realization.
+
+Example
+-------
+    python scripts/get_clean_backgrounds.py --runs O3a O3b --target 500 --out backgrounds_test.pkl
+    python scripts/get_clean_backgrounds.py --runs O3a O3b O4a O4b --target 40000 --out backgrounds_full.pkl
 """
 
-import numpy as np
+import argparse
 import pickle
 import time
+from pathlib import Path
 
-from gwpy.segments import DataQualityFlag, SegmentList, Segment
+import numpy as np
+from gwpy.segments import DataQualityFlag, Segment, SegmentList
 from gwpy.timeseries import TimeSeries
 
-# ── Run configuration ─────────────────────────────────────────────────────────
-
-RUNS = {
-    'O3a': {'start': 1238166018, 'end': 1253977218},
-    'O3b': {'start': 1256655618, 'end': 1269363618},
-}
-IFOS    = ['H1', 'L1']
+from deepextractor.data.omicron import RUN_PERIODS
 
 # ── Processing parameters ─────────────────────────────────────────────────────
 
+IFOS             = ['H1', 'L1']
 OMICRON_DIR      = 'triggers/'
 SAMPLE_RATE      = 4096   # Hz
 
 CONTEXT_DURATION = 36     # s — data fetched and whitened per window
-MAX_FILTER_DUR   = 2      # s — whitening filter length; removed from each edge
+MAX_FILTER_DUR   = 2      # s — whitening filter edge corruption; removed from each end
 PSD_DURATION     = 4      # s — Welch sub-segment length for PSD estimation
-CONTEXT_STRIDE   = CONTEXT_DURATION - 2 * MAX_FILTER_DUR  # = 32s, usable window size
+CONTEXT_STRIDE   = CONTEXT_DURATION - 2 * MAX_FILTER_DUR  # = 32s usable window
 
 SAMPLE_DURATION  = 8      # s — output sample length
 SAMPLE_LENGTH    = SAMPLE_DURATION * SAMPLE_RATE           # 32768 samples
 DELTA_T          = 2      # s — sliding step within usable window
-DELTA_T_SAMPLES  = DELTA_T * SAMPLE_RATE                   # 16384 samples
+DELTA_T_SAMPLES  = DELTA_T * SAMPLE_RATE
 
-# Samples per context: floor((CONTEXT_STRIDE - SAMPLE_DURATION) / DELTA_T) + 1 = 13
-SAMPLES_PER_CONTEXT = (CONTEXT_STRIDE - SAMPLE_DURATION) // DELTA_T + 1
+SAMPLES_PER_CONTEXT = (CONTEXT_STRIDE - SAMPLE_DURATION) // DELTA_T + 1  # = 13
 
 TRIGGER_BUFFER   = 2.0    # s — safety margin added to each side of a trigger
 MIN_SEG_DUR      = CONTEXT_DURATION
-TARGET_COUNT     = 40_000
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -73,9 +73,6 @@ def whiten_and_slice(ts):
     """
     Whiten a CONTEXT_DURATION-second GWpy TimeSeries and return overlapping
     SAMPLE_DURATION windows from the usable (edge-trimmed) region.
-
-    GWpy's whiten() corrupts fftlength/2 seconds at each edge, so we manually
-    crop MAX_FILTER_DUR = PSD_DURATION/2 seconds from each end.
     """
     whitened = ts.whiten(fftlength=PSD_DURATION, overlap=PSD_DURATION // 2)
     pad = MAX_FILTER_DUR * SAMPLE_RATE
@@ -88,88 +85,117 @@ def whiten_and_slice(ts):
             windows.append(w)
     return windows
 
+# ── CLI ───────────────────────────────────────────────────────────────────────
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument(
+        '--runs', nargs='+', required=True,
+        choices=sorted(RUN_PERIODS),
+        metavar='RUN',
+        help=f'Observing run(s) to process. Choices: {sorted(RUN_PERIODS)}',
+    )
+    p.add_argument(
+        '--target', type=int, default=40_000,
+        help='Target number of samples per IFO/run (default: 40000)',
+    )
+    p.add_argument(
+        '--out', type=Path, default=Path('real_backgrounds_dict.pkl'),
+        help='Output pickle file (default: real_backgrounds_dict.pkl)',
+    )
+    return p.parse_args()
+
 # ── Main loop ─────────────────────────────────────────────────────────────────
 
-backgrounds = {run: {ifo: [] for ifo in IFOS} for run in RUNS}
+def main() -> None:
+    args = parse_args()
+    target = args.target
 
-for run, cfg in RUNS.items():
-    run_start, run_end = cfg['start'], cfg['end']
+    backgrounds = {run: {ifo: [] for ifo in IFOS} for run in args.runs}
 
-    for ifo in IFOS:
-        print(f"\n{'─' * 60}")
-        print(f"  {ifo}  {run}  (GPS {run_start} – {run_end})")
-        print(f"  Context: {CONTEXT_DURATION}s  |  Stride: {CONTEXT_STRIDE}s  |  "
-              f"{SAMPLES_PER_CONTEXT} samples/context  |  target: {TARGET_COUNT}")
-        print(f"{'─' * 60}")
+    for run in args.runs:
+        run_start, run_end = RUN_PERIODS[run]
 
-        triggers = np.load(f"{OMICRON_DIR}{ifo.lower()}_{run.lower()}_triggers.npz")
-        tstarts  = triggers["tstart"]
-        tends    = triggers["tend"]
+        for ifo in IFOS:
+            print(f"\n{'─' * 60}")
+            print(f"  {ifo}  {run}  (GPS {run_start} – {run_end})")
+            print(f"  Context: {CONTEXT_DURATION}s  |  Stride: {CONTEXT_STRIDE}s  |  "
+                  f"{SAMPLES_PER_CONTEXT} samples/context  |  target: {target}")
+            print(f"{'─' * 60}")
 
-        flag = f'{ifo}:DMT-ANALYSIS_READY:1'
-        print(f"  Querying {flag} ...")
-        science_segs = DataQualityFlag.query(flag, run_start, run_end).active
+            triggers = np.load(f"{OMICRON_DIR}{ifo.lower()}_{run.lower()}_triggers.npz")
+            tstarts  = triggers["tstart"]
+            tends    = triggers["tend"]
 
-        glitch_segs = build_glitch_segments(tstarts, tends, TRIGGER_BUFFER)
-        clean_segs  = science_segs - glitch_segs
+            flag = f'{ifo}:DMT-ANALYSIS_READY:1'
+            print(f"  Querying {flag} ...")
+            science_segs = DataQualityFlag.query(flag, run_start, run_end).active
 
-        n_qualifying = sum(1 for s in clean_segs if float(s[1] - s[0]) >= MIN_SEG_DUR)
-        total_clean_h = sum(float(s[1] - s[0]) for s in clean_segs) / 3600
-        print(f"  Clean time: {total_clean_h:.1f} h  |  "
-              f"segments >= {MIN_SEG_DUR}s: {n_qualifying}")
+            glitch_segs = build_glitch_segments(tstarts, tends, TRIGGER_BUFFER)
+            clean_segs  = science_segs - glitch_segs
 
-        samples = []
-        t0 = time.time()
-        failed = 0
+            n_qualifying = sum(1 for s in clean_segs if float(s[1] - s[0]) >= MIN_SEG_DUR)
+            total_clean_h = sum(float(s[1] - s[0]) for s in clean_segs) / 3600
+            print(f"  Clean time: {total_clean_h:.1f} h  |  "
+                  f"segments >= {MIN_SEG_DUR}s: {n_qualifying}")
 
-        for seg in clean_segs:
-            if len(samples) >= TARGET_COUNT:
-                break
-            if float(seg[1] - seg[0]) < MIN_SEG_DUR:
-                continue
+            samples = []
+            t0 = time.time()
+            failed = 0
 
-            context_start = float(seg[0])
-            while context_start + CONTEXT_DURATION <= float(seg[1]):
-                if len(samples) >= TARGET_COUNT:
+            for seg in clean_segs:
+                if len(samples) >= target:
                     break
+                if float(seg[1] - seg[0]) < MIN_SEG_DUR:
+                    continue
 
-                try:
-                    ts = TimeSeries.get(
-                        f'{ifo}:GDS-CALIB_STRAIN',
-                        context_start,
-                        context_start + CONTEXT_DURATION,
-                        verbose=False,
+                context_start = float(seg[0])
+                while context_start + CONTEXT_DURATION <= float(seg[1]):
+                    if len(samples) >= target:
+                        break
+
+                    try:
+                        ts = TimeSeries.get(
+                            f'{ifo}:GDS-CALIB_STRAIN',
+                            context_start,
+                            context_start + CONTEXT_DURATION,
+                            verbose=False,
+                        )
+                        if ts.sample_rate.value != SAMPLE_RATE:
+                            ts = ts.resample(SAMPLE_RATE)
+
+                        new = whiten_and_slice(ts)
+                        samples.extend(new)
+
+                    except Exception as e:
+                        failed += 1
+                        print(f"\n  ! GPS {context_start:.0f}: {e}")
+
+                    context_start += CONTEXT_STRIDE
+
+                    elapsed = time.time() - t0
+                    rate = len(samples) / max(elapsed, 1e-6)
+                    eta  = (target - len(samples)) / max(rate, 1e-6)
+                    m, s = divmod(int(eta), 60)
+                    print(
+                        f"\r  {len(samples):>6}/{target}  |  "
+                        f"{rate:.1f} samples/s  |  ETA {m}m {s:02d}s  |  "
+                        f"failed fetches: {failed}",
+                        end='',
                     )
-                    if ts.sample_rate.value != SAMPLE_RATE:
-                        ts = ts.resample(SAMPLE_RATE)
 
-                    new = whiten_and_slice(ts)
-                    samples.extend(new)
+            backgrounds[run][ifo] = np.array(samples[:target], dtype=np.float32)
+            print(f"\n  Done: {len(backgrounds[run][ifo])} samples  |  "
+                  f"failed fetches: {failed}")
 
-                except Exception as e:
-                    failed += 1
-                    print(f"\n  ! GPS {context_start:.0f}: {e}")
+    with open(args.out, 'wb') as f:
+        pickle.dump(backgrounds, f)
 
-                context_start += CONTEXT_STRIDE
+    size_gb = target * SAMPLE_LENGTH * 4 / 1e9
+    print(f"\nSaved {args.out}")
+    print(f"Dataset shape per IFO/run: ({target}, {SAMPLE_LENGTH})  [{size_gb:.2f} GB each]")
 
-                elapsed = time.time() - t0
-                rate = len(samples) / max(elapsed, 1e-6)
-                eta  = (TARGET_COUNT - len(samples)) / max(rate, 1e-6)
-                m, s = divmod(int(eta), 60)
-                print(
-                    f"\r  {len(samples):>6}/{TARGET_COUNT}  |  "
-                    f"{rate:.1f} samples/s  |  ETA {m}m {s:02d}s  |  "
-                    f"failed fetches: {failed}",
-                    end='',
-                )
 
-        backgrounds[run][ifo] = np.array(samples[:TARGET_COUNT], dtype=np.float32)
-        print(f"\n  Done: {len(backgrounds[run][ifo])} samples  |  "
-              f"failed fetches: {failed}")
-
-with open('real_backgrounds_dict.pkl', 'wb') as f:
-    pickle.dump(backgrounds, f)
-
-print("\nSaved real_backgrounds_dict.pkl")
-print(f"Dataset shape per IFO/run: ({TARGET_COUNT}, {SAMPLE_LENGTH})  "
-      f"[{TARGET_COUNT * SAMPLE_LENGTH * 4 / 1e9:.2f} GB each]")
+if __name__ == '__main__':
+    main()

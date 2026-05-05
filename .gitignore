@@ -40,6 +40,8 @@ notebooks/.ipynb_checkpoints/
 data/
 !src/deepextractor/data/
 *.npy
+*.npz
+triggers/
 losses/
 /evaluation/
 saved_predictions/

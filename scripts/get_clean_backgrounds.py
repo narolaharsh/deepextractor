@@ -58,6 +58,7 @@ SAMPLES_PER_CONTEXT = (CONTEXT_STRIDE - SAMPLE_DURATION) // DELTA_T + 1  # = 13
 
 TRIGGER_BUFFER   = 2.0    # s — safety margin added to each side of a trigger
 MIN_SEG_DUR      = CONTEXT_DURATION
+MAX_AMP          = 30.0   # whitened noise should be ~N(0,1); reject windows exceeding this
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ def whiten_and_slice(ts):
     windows = []
     for start in range(0, len(data) - SAMPLE_LENGTH + 1, DELTA_T_SAMPLES):
         w = data[start : start + SAMPLE_LENGTH]
-        if np.isfinite(w).all():
+        if np.isfinite(w).all() and np.abs(w).max() < MAX_AMP:
             windows.append(w)
     return windows
 

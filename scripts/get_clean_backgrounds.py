@@ -202,10 +202,12 @@ def main() -> None:
     with open(args.out, 'wb') as f:
         pickle.dump(backgrounds, f)
 
-    size_gb = target * SAMPLE_LENGTH * 4 / 1e9
     print(f"\nSaved {args.out}")
-    print(f"backgrounds[run][ifo]['samples']:    ({target}, {SAMPLE_LENGTH})  [{size_gb:.2f} GB each]")
-    print(f"backgrounds[run][ifo]['gps_starts']: ({target},)  — context GPS start per sample")
+    for run in args.runs:
+        for ifo in IFOS:
+            n = len(backgrounds[run][ifo]['samples'])
+            size_gb = n * SAMPLE_LENGTH * 4 / 1e9
+            print(f"  {run} {ifo}: {n} samples  [{size_gb:.2f} GB]")
 
 
 if __name__ == '__main__':

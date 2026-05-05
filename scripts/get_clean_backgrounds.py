@@ -77,7 +77,7 @@ def whiten_and_slice(ts):
     Whiten a CONTEXT_DURATION-second GWpy TimeSeries and return overlapping
     SAMPLE_DURATION windows from the usable (edge-trimmed) region.
     """
-    whitened = ts.whiten(fftlength=PSD_DURATION, overlap=PSD_DURATION // 2)
+    whitened = ts.whiten(fftlength=PSD_DURATION, overlap=PSD_DURATION // 2, highpass=10.0)
     pad = MAX_FILTER_DUR * SAMPLE_RATE
     data = np.array(whitened, dtype=np.float32)[pad:-pad]
 

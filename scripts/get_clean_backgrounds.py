@@ -56,7 +56,7 @@ DELTA_T_SAMPLES  = DELTA_T * SAMPLE_RATE
 
 SAMPLES_PER_CONTEXT = (CONTEXT_STRIDE - SAMPLE_DURATION) // DELTA_T + 1  # = 13
 
-TRIGGER_BUFFER   = 2.0    # s — safety margin added to each side of a trigger
+TRIGGER_BUFFER   = 0.5    # s — safety margin added to each side of a trigger
 MIN_SEG_DUR      = CONTEXT_DURATION
 MAX_AMP          = 30.0   # whitened noise should be ~N(0,1); reject windows exceeding this
 

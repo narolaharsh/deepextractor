@@ -34,11 +34,10 @@ RUNS = {
     'O3b': {'start': 1256655618, 'end': 1269363618},
 }
 IFOS    = ['H1', 'L1']
-IFO_SITE = {'H1': 'hanford', 'L1': 'livingston'}
 
 # ── Processing parameters ─────────────────────────────────────────────────────
 
-OMICRON_DIR      = 'omicron_triggers/'
+OMICRON_DIR      = 'triggers/'
 SAMPLE_RATE      = 4096   # Hz
 
 CONTEXT_DURATION = 36     # s — data fetched and whitened per window
@@ -103,8 +102,7 @@ for run, cfg in RUNS.items():
               f"{SAMPLES_PER_CONTEXT} samples/context  |  target: {TARGET_COUNT}")
         print(f"{'─' * 60}")
 
-        site = IFO_SITE[ifo]
-        triggers = np.load(f"{OMICRON_DIR}{site}_{run.lower()}_triggers.npz")
+        triggers = np.load(f"{OMICRON_DIR}{ifo.lower()}_{run.lower()}_triggers.npz")
         tstarts  = triggers["tstart"]
         tends    = triggers["tend"]
 

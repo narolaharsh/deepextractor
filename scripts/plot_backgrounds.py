@@ -15,6 +15,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+from deepextractor.utils.visualization import plot_q_transform
+
 SAMPLE_RATE     = 4096
 SAMPLE_DURATION = 8
 RUNS            = ['O3a', 'O3b', 'O4a', 'O4b']
@@ -161,6 +163,43 @@ def plot_psds(backgrounds: dict, out: Path) -> None:
     print(f'  Saved {path}')
 
 
+def plot_qscans(backgrounds: dict, out: Path,
+                frange: list = [10, 1200], qrange: list = [4, 64]) -> None:
+    for run in RUNS:
+        if run not in backgrounds:
+            continue
+        fig, axes = plt.subplots(len(IFOS), N_EXAMPLES,
+                                 figsize=(3.5 * N_EXAMPLES, 3.5 * len(IFOS)))
+        fig.suptitle(f'Q-scans of whitened background samples — {run}', fontsize=12)
+
+        for row, ifo in enumerate(IFOS):
+            samples = get_samples(backgrounds[run][ifo])
+            n = len(samples)
+            idxs = np.random.choice(n, size=min(N_EXAMPLES, n), replace=False)
+            for col, idx in enumerate(idxs):
+                ax = axes[row, col]
+                plot_q_transform(
+                    samples[idx],
+                    srate=SAMPLE_RATE,
+                    whiten=False,   # already whitened
+                    ax=ax,
+                    colourbar=False,
+                    qrange=qrange,
+                    frange=frange,
+                )
+                ax.set_title(f'{ifo} sample {idx}', fontsize=8)
+                if col != 0:
+                    ax.set_ylabel('')
+                if row != len(IFOS) - 1:
+                    ax.set_xlabel('')
+
+        fig.tight_layout()
+        path = out / f'qscans_{run}.png'
+        fig.savefig(path, dpi=150)
+        plt.close(fig)
+        print(f'  Saved {path}')
+
+
 def main() -> None:
     args = parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
@@ -173,6 +212,7 @@ def main() -> None:
     plot_timeseries(backgrounds, args.out)
     plot_amplitude_distributions(backgrounds, args.out)
     plot_psds(backgrounds, args.out)
+    plot_qscans(backgrounds, args.out)
 
 
 if __name__ == '__main__':

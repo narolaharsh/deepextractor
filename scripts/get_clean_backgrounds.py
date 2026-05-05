@@ -31,6 +31,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+from gwdatafind import find_urls
 from gwpy.segments import DataQualityFlag, Segment, SegmentList
 from gwpy.timeseries import TimeSeries
 
@@ -39,6 +40,7 @@ from deepextractor.data.omicron import RUN_PERIODS
 # ── Processing parameters ─────────────────────────────────────────────────────
 
 IFOS             = ['H1', 'L1']
+FRAME_TYPE       = {'H1': 'H1_HOFT_C00', 'L1': 'L1_HOFT_C00'}
 OMICRON_DIR      = 'triggers/'
 SAMPLE_RATE      = 4096   # Hz
 
@@ -156,11 +158,13 @@ def main() -> None:
                         break
 
                     try:
-                        ts = TimeSeries.get(
-                            f'{ifo}:GDS-CALIB_STRAIN',
-                            context_start,
-                            context_start + CONTEXT_DURATION,
-                            verbose=False,
+                        urls = find_urls(
+                            ifo[0], FRAME_TYPE[ifo],
+                            context_start, context_start + CONTEXT_DURATION,
+                        )
+                        ts = TimeSeries.read(
+                            urls, channel=f'{ifo}:GDS-CALIB_STRAIN',
+                            start=context_start, end=context_start + CONTEXT_DURATION,
                         )
                         if ts.sample_rate.value != SAMPLE_RATE:
                             ts = ts.resample(SAMPLE_RATE)

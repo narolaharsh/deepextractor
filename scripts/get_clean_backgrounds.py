@@ -142,7 +142,8 @@ def main() -> None:
             print(f"  Clean time: {total_clean_h:.1f} h  |  "
                   f"segments >= {MIN_SEG_DUR}s: {n_qualifying}")
 
-            samples = []
+            samples   = []
+            gps_times = []
             t0 = time.time()
             failed = 0
 
@@ -171,6 +172,7 @@ def main() -> None:
 
                         new = whiten_and_slice(ts)
                         samples.extend(new)
+                        gps_times.extend([context_start] * len(new))
 
                     except Exception as e:
                         failed += 1
@@ -189,8 +191,11 @@ def main() -> None:
                         end='',
                     )
 
-            backgrounds[run][ifo] = np.array(samples[:target], dtype=np.float32)
-            print(f"\n  Done: {len(backgrounds[run][ifo])} samples  |  "
+            backgrounds[run][ifo] = {
+                'samples':    np.array(samples[:target],   dtype=np.float32),
+                'gps_starts': np.array(gps_times[:target], dtype=np.float64),
+            }
+            print(f"\n  Done: {len(backgrounds[run][ifo]['samples'])} samples  |  "
                   f"failed fetches: {failed}")
 
     with open(args.out, 'wb') as f:
@@ -198,7 +203,8 @@ def main() -> None:
 
     size_gb = target * SAMPLE_LENGTH * 4 / 1e9
     print(f"\nSaved {args.out}")
-    print(f"Dataset shape per IFO/run: ({target}, {SAMPLE_LENGTH})  [{size_gb:.2f} GB each]")
+    print(f"backgrounds[run][ifo]['samples']:    ({target}, {SAMPLE_LENGTH})  [{size_gb:.2f} GB each]")
+    print(f"backgrounds[run][ifo]['gps_starts']: ({target},)  — context GPS start per sample")
 
 
 if __name__ == '__main__':

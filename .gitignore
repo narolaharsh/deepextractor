@@ -43,6 +43,7 @@ data/
 *.npz
 triggers/
 losses/
+plots/
 /evaluation/
 saved_predictions/
 

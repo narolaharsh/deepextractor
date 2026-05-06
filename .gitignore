@@ -50,6 +50,10 @@ saved_predictions/
 # pretrained/ is a local cache for HuggingFace weights — do not commit
 pretrained/
 
+# Model checkpoints — large files, tracked via HuggingFace Hub (not git)
+checkpoints/**/*.pth.tar
+checkpoints/**/*.pth
+
 # Track bundled assets (scalers, cdvgan weights) via git-lfs (see .gitattributes)
 !assets/**
 

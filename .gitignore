@@ -44,7 +44,6 @@ data/
 triggers/
 losses/
 plots/
-/evaluation/
 saved_predictions/
 
 # pretrained/ is a local cache for HuggingFace weights — do not commit

@@ -1,0 +1,458 @@
+"""
+PE case evaluation pipeline for DeepExtractor signal+glitch separation.
+
+For each GW event, generates N independent realisations of:
+  Case 1 — ground truth  (bilby noise + IMRPhenomXPHM signal)
+  Case 2 — glitchy input (+ gengli glitch injected at merger)
+  Case 3 — DeepExtractor separation (predicted signal / background / glitch)
+
+Also saves `deglitched_h1/l1 = glitchy - predicted_glitch` for your
+colleague's PE runs.
+
+Pickle output structure
+-----------------------
+  results[event_name] = list of N dicts, each containing all three cases
+  plus per-sample mismatch values.
+
+Usage
+-----
+    python scripts/evaluate_pe_cases.py \\
+        --checkpoint checkpoints/best.pth.tar \\
+        --scaler data/standard_scaler.pkl \\
+        --out PE_results/ \\
+        --n-per-event 10
+
+    # Single realisation per event (notebook-equivalent):
+    python scripts/evaluate_pe_cases.py \\
+        --checkpoint checkpoints/best.pth.tar \\
+        --scaler data/standard_scaler.pkl \\
+        --out PE_results/ \\
+        --n-per-event 1
+"""
+
+import argparse
+import pickle
+import random
+import warnings
+from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import bilby
+from pycbc.filter.matchedfilter import match
+from pycbc.types import TimeSeries as PyCBCTimeSeries
+
+from deepextractor.models import UNET1D
+from deepextractor.utils.signal import whitened_snr_scaling
+
+bilby.core.utils.setup_logger(log_level="warning")
+
+# ── Constants ─────────────────────────────────────────────────────────────────
+
+SAMPLE_RATE = 4096
+T           = 4.0
+LENGTH      = int(T * SAMPLE_RATE)   # 16384
+T_INJ       = 3.5                    # merger time within the 4s window
+SNR_SCALING_FACTOR_BILBY = 31.970149253731343
+TIME_AXIS   = np.linspace(0, T, LENGTH, endpoint=False)
+
+EVENTS = {
+    "GW150914": dict(
+        mass_1=36, mass_2=29,
+        a_1=0.11, a_2=0.09,
+        tilt_1=1.4, tilt_2=1.3,
+        phi_12=1.0, phi_jl=2.2,
+        luminosity_distance=450,
+        theta_jn=0.5, psi=0, phase=0,
+        geocent_time=1126259642.413,
+        ra=1.5, dec=0.5,
+    ),
+    "GW190521": dict(
+        mass_1=85, mass_2=66,
+        a_1=0.69, a_2=0.73,
+        tilt_1=0.52, tilt_2=1.06,
+        phi_12=5.56, phi_jl=0.41,
+        luminosity_distance=3931,
+        theta_jn=0.63, psi=1.79, phase=0.71,
+        geocent_time=1242442967.44,
+        ra=4.37, dec=0.91,
+    ),
+    "GW200129": dict(
+        mass_1=34.5, mass_2=29.0,
+        a_1=0.9, a_2=0.75,
+        tilt_1=0.79, tilt_2=1.26,
+        phi_12=2.56, phi_jl=0.28,
+        luminosity_distance=985,
+        theta_jn=2.51, psi=0.37, phase=3.0,
+        geocent_time=1264316116.44,
+        ra=2.13, dec=-1.23,
+    ),
+    "GW200224": dict(
+        mass_1=40.0, mass_2=33.0,
+        a_1=0.05, a_2=0.31,
+        tilt_1=1.05, tilt_2=2.00,
+        phi_12=0.83, phi_jl=2.37,
+        luminosity_distance=1575,
+        theta_jn=0.55, psi=1.75, phase=4.52,
+        geocent_time=1269363521.74,
+        ra=3.68, dec=0.72,
+    ),
+}
+
+WAVEFORM_ARGUMENTS = dict(
+    waveform_approximant="IMRPhenomXPHM",
+    reference_frequency=50,
+    minimum_frequency=20,
+)
+
+# ── Data generation ───────────────────────────────────────────────────────────
+
+def generate_bilby_example(event_name: str, params: dict) -> dict:
+    """Generate whitened bilby noise + injected GW signal for one event."""
+    ifos = bilby.gw.detector.InterferometerList(["H1", "L1"])
+    for ifo in ifos:
+        ifo.sampling_frequency = SAMPLE_RATE
+        ifo.duration = T
+
+    wfg = bilby.gw.waveform_generator.WaveformGenerator(
+        duration=T,
+        sampling_frequency=SAMPLE_RATE,
+        frequency_domain_source_model=bilby.gw.source.lal_binary_black_hole,
+        parameters=params,
+        waveform_arguments=WAVEFORM_ARGUMENTS,
+    )
+
+    ifos.set_strain_data_from_power_spectral_densities(
+        sampling_frequency=SAMPLE_RATE,
+        duration=T,
+        start_time=params["geocent_time"] - T_INJ,
+    )
+
+    whitened_noise_h1 = ifos[0].whitened_time_domain_strain.copy()
+    whitened_noise_l1 = ifos[1].whitened_time_domain_strain.copy()
+
+    ifos.inject_signal(waveform_generator=wfg, parameters=params)
+
+    whitened_h1 = ifos[0].whitened_time_domain_strain.copy()
+    whitened_l1 = ifos[1].whitened_time_domain_strain.copy()
+
+    signal_h1 = whitened_h1 - whitened_noise_h1
+    signal_l1 = whitened_l1 - whitened_noise_l1
+
+    fd_signal = wfg.frequency_domain_strain(params)
+    fd_h1 = ifos[0].get_detector_response(waveform_polarizations=fd_signal, parameters=params)
+    fd_l1 = ifos[1].get_detector_response(waveform_polarizations=fd_signal, parameters=params)
+    snr_h1 = float(np.abs(ifos[0].optimal_snr_squared(fd_h1) ** 0.5))
+    snr_l1 = float(np.abs(ifos[1].optimal_snr_squared(fd_l1) ** 0.5))
+
+    return {
+        "event":            event_name,
+        "injection_parameters": params,
+        "snr_h1":           snr_h1,
+        "snr_l1":           snr_l1,
+        "whitened_data_h1": whitened_h1,       # signal + noise
+        "whitened_data_l1": whitened_l1,
+        "background_h1":    whitened_noise_h1, # noise only
+        "background_l1":    whitened_noise_l1,
+        "signal_h1":        signal_h1,         # signal only
+        "signal_l1":        signal_l1,
+    }
+
+
+def inject_gengli_glitch(ex: dict, snr_min: float = 15.0, snr_max: float = 100.0,
+                         inject_h1: bool | None = None) -> dict:
+    """Inject a gengli glitch into one detector at merger time."""
+    import gengli
+
+    if inject_h1 is None:
+        inject_h1 = random.random() < 0.5
+
+    ifo_str = "H1" if inject_h1 else "L1"
+    g = gengli.glitch_generator(ifo_str)
+    raw_glitch = np.array(g.get_glitch()).squeeze()
+    raw_glitch = raw_glitch - raw_glitch.mean()
+
+    glitch_snr = np.random.uniform(snr_min, snr_max) / SNR_SCALING_FACTOR_BILBY
+    glitch = whitened_snr_scaling(raw_glitch, snr=glitch_snr)
+
+    glitchy_h1 = ex["whitened_data_h1"].copy()
+    glitchy_l1 = ex["whitened_data_l1"].copy()
+    target = glitchy_h1 if inject_h1 else glitchy_l1
+
+    len_g   = len(glitch)
+    id_start = int(T_INJ * SAMPLE_RATE) - len_g // 2
+    id_start = max(0, min(id_start, LENGTH - len_g))
+    target[id_start:id_start + len_g] += glitch
+
+    return {
+        **ex,
+        "inject_h1":      inject_h1,
+        "glitchy_h1":     glitchy_h1,
+        "glitchy_l1":     glitchy_l1,
+        "true_glitch_h1": glitchy_h1 - ex["whitened_data_h1"],
+        "true_glitch_l1": glitchy_l1 - ex["whitened_data_l1"],
+        "glitch_snr":     glitch_snr * SNR_SCALING_FACTOR_BILBY,
+    }
+
+
+# ── Model inference ───────────────────────────────────────────────────────────
+
+def run_separator(ex: dict, model, scaler, device) -> dict:
+    """Run DeepExtractor and compute all three output cases."""
+    x = np.stack([ex["glitchy_h1"], ex["glitchy_l1"]])[np.newaxis].astype(np.float32)
+    x_scaled = scaler.transform(x.reshape(-1, 1)).reshape(x.shape)
+
+    with torch.no_grad():
+        out = model(torch.tensor(x_scaled).to(device))[0].cpu().numpy()  # (4, T)
+
+    pred_h1_bg  = out[0]
+    pred_l1_bg  = out[1]
+    pred_h1_sig = out[2]
+    pred_l1_sig = out[3]
+
+    g_hat_h1 = ex["glitchy_h1"] - pred_h1_bg - pred_h1_sig
+    g_hat_l1 = ex["glitchy_l1"] - pred_l1_bg - pred_l1_sig
+
+    # Deglitched strain = input minus predicted glitch → for PE
+    deglitched_h1 = ex["glitchy_h1"] - g_hat_h1
+    deglitched_l1 = ex["glitchy_l1"] - g_hat_l1
+
+    return {
+        **ex,
+        "pred_h1_bg":    pred_h1_bg,
+        "pred_l1_bg":    pred_l1_bg,
+        "pred_h1_sig":   pred_h1_sig,
+        "pred_l1_sig":   pred_l1_sig,
+        "g_hat_h1":      g_hat_h1,
+        "g_hat_l1":      g_hat_l1,
+        "deglitched_h1": deglitched_h1,  # for PE: glitchy - predicted_glitch
+        "deglitched_l1": deglitched_l1,
+    }
+
+
+# ── Metrics ───────────────────────────────────────────────────────────────────
+
+def calc_match(true: np.ndarray, pred: np.ndarray) -> float:
+    dt = 1.0 / SAMPLE_RATE
+    try:
+        return float(match(
+            PyCBCTimeSeries(true.astype(np.float64), delta_t=dt),
+            PyCBCTimeSeries(pred.astype(np.float64), delta_t=dt),
+        )[0])
+    except Exception:
+        return float("nan")
+
+
+def compute_mismatches(ex: dict) -> dict:
+    m_sig_h1 = calc_match(ex["signal_h1"], ex["pred_h1_sig"])
+    m_sig_l1 = calc_match(ex["signal_l1"], ex["pred_l1_sig"])
+    glitchy_ifo = "h1" if ex["inject_h1"] else "l1"
+    m_glitch = calc_match(ex[f"true_glitch_{glitchy_ifo}"], ex[f"g_hat_{glitchy_ifo}"])
+    return {
+        "match_signal_h1":    m_sig_h1,
+        "match_signal_l1":    m_sig_l1,
+        "match_glitch":       m_glitch,
+        "mismatch_signal_h1": (1 - m_sig_h1) * 100,
+        "mismatch_signal_l1": (1 - m_sig_l1) * 100,
+        "mismatch_glitch":    (1 - m_glitch)  * 100,
+    }
+
+
+# ── Plotting ──────────────────────────────────────────────────────────────────
+
+def plot_separation(examples: list, out_path: Path) -> None:
+    """Time-series separation plot — one row of 3 panels per example."""
+    n = len(examples)
+    fig, axes = plt.subplots(n * 3, 2, figsize=(14, 4 * n), sharex=True)
+    if n * 3 == 1:
+        axes = axes[np.newaxis]
+
+    for row, ex in enumerate(examples):
+        r0, r1, r2 = row * 3, row * 3 + 1, row * 3 + 2
+        mm = {
+            "sig_h1":  ex["mismatch_signal_h1"],
+            "sig_l1":  ex["mismatch_signal_l1"],
+            "glitch":  ex["mismatch_glitch"],
+        }
+
+        # Row 0 — whitened inputs
+        for col, ifo in enumerate(["H1", "L1"]):
+            ifo_l = ifo.lower()
+            ax = axes[r0, col]
+            ax.plot(TIME_AXIS, ex[f"glitchy_{ifo_l}"],    color="grey",  lw=0.5, alpha=0.8, label="Input")
+            ax.plot(TIME_AXIS, ex[f"signal_{ifo_l}"],     color="black", lw=0.8, ls="--", alpha=0.7, label="True GW")
+            true_g = ex[f"true_glitch_{ifo_l}"]
+            if np.any(true_g != 0):
+                ax.plot(TIME_AXIS, true_g, color="red", lw=0.8, ls="--", alpha=0.7, label="True glitch")
+            ax.axvline(T_INJ, color="red", lw=0.8, ls=":", alpha=0.5)
+            ax.set_title(f"{ifo} — input  (SNR={ex[f'snr_{ifo_l}']:.1f})", fontsize=9)
+            if col == 0:
+                ax.set_ylabel(ex["event"], fontsize=8)
+            ax.legend(fontsize=6, loc="upper left")
+            ax.tick_params(labelsize=7)
+
+        # Row 1 — reconstructed GW signal
+        for col, ifo in enumerate(["H1", "L1"]):
+            ifo_l = ifo.lower()
+            ax = axes[r1, col]
+            ax.plot(TIME_AXIS, ex[f"glitchy_{ifo_l}"],   color="grey",      lw=0.4, alpha=0.4)
+            ax.plot(TIME_AXIS, ex[f"pred_{ifo_l}_sig"],  color="royalblue", lw=0.8, label="Predicted")
+            ax.plot(TIME_AXIS, ex[f"signal_{ifo_l}"],    color="black",     lw=0.8, ls=":", alpha=0.8, label="True")
+            ax.axvline(T_INJ, color="red", lw=0.8, ls=":", alpha=0.5)
+            ax.set_title(f"{ifo} signal — MM={mm[f'sig_{ifo_l}']:.1f}%", fontsize=9, color="darkred")
+            ax.legend(fontsize=6, loc="upper left")
+            ax.tick_params(labelsize=7)
+
+        # Row 2 — reconstructed glitch
+        for col, ifo in enumerate(["H1", "L1"]):
+            ifo_l = ifo.lower()
+            ax = axes[r2, col]
+            has_glitch = (ifo == "H1") == ex["inject_h1"]
+            ax.plot(TIME_AXIS, ex[f"glitchy_{ifo_l}"],  color="grey",   lw=0.4, alpha=0.4)
+            ax.plot(TIME_AXIS, ex[f"g_hat_{ifo_l}"],    color="tomato", lw=0.8, label="Predicted glitch")
+            ax.plot(TIME_AXIS, ex[f"true_glitch_{ifo_l}"], color="black", lw=0.8, ls=":", alpha=0.8, label="True glitch")
+            ax.axvline(T_INJ, color="red", lw=0.8, ls=":", alpha=0.5)
+            if has_glitch:
+                ax.set_title(f"{ifo} glitch — MM={mm['glitch']:.1f}%", fontsize=9, color="darkred")
+            else:
+                ax.set_title(f"{ifo} — no glitch injected", fontsize=9, color="grey")
+            ax.legend(fontsize=6, loc="upper left")
+            ax.tick_params(labelsize=7)
+            if row == n - 1:
+                ax.set_xlabel("Time (s)", fontsize=8)
+
+    fig.suptitle(
+        "DeepExtractor PE evaluation  |  bilby noise + IMRPhenomXPHM + gengli glitch\n"
+        f"Red dotted line = merger (t={T_INJ}s)  |  MM = mismatch (%)",
+        fontsize=11,
+    )
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Saved {out_path}")
+
+
+def plot_mismatch_summary(results: dict, out_path: Path) -> None:
+    """Mismatch distribution per event — violin plot for N>1, scatter for N=1."""
+    events = list(results.keys())
+    metrics = ["mismatch_signal_h1", "mismatch_signal_l1", "mismatch_glitch"]
+    labels  = ["Signal MM H1 (%)", "Signal MM L1 (%)", "Glitch MM (%)"]
+    colors  = ["royalblue", "seagreen", "tomato"]
+
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4), sharey=False)
+    for ax, metric, label, color in zip(axes, metrics, labels, colors):
+        data = [[ex[metric] for ex in results[ev]] for ev in events]
+        n_per = len(data[0])
+
+        if n_per > 1:
+            parts = ax.violinplot(data, positions=range(len(events)), showmedians=True)
+            for pc in parts["bodies"]:
+                pc.set_facecolor(color)
+                pc.set_alpha(0.5)
+        else:
+            ax.scatter(range(len(events)), [d[0] for d in data], color=color, s=60, zorder=3)
+
+        ax.set_xticks(range(len(events)))
+        ax.set_xticklabels(events, rotation=20, ha="right", fontsize=9)
+        ax.set_ylabel(label, fontsize=10)
+        ax.set_title(label, fontsize=10)
+        ax.axhline(0, color="k", lw=0.5, ls="--", alpha=0.4)
+        ax.tick_params(labelsize=8)
+
+    fig.suptitle(
+        f"DeepExtractor mismatch summary  (N={len(results[events[0]])} per event)",
+        fontsize=12,
+    )
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Saved {out_path}")
+
+
+# ── CLI ───────────────────────────────────────────────────────────────────────
+
+def parse_args():
+    p = argparse.ArgumentParser(description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--checkpoint",  required=True,   help="Path to model checkpoint (.pth.tar)")
+    p.add_argument("--scaler",      default=None,    help="Path to StandardScaler pickle")
+    p.add_argument("--out",         required=True,   help="Output directory")
+    p.add_argument("--n-per-event", type=int, default=1,
+                   help="Number of independent realisations per event (default: 1)")
+    p.add_argument("--snr-min-glitch", type=float, default=15.0)
+    p.add_argument("--snr-max-glitch", type=float, default=100.0)
+    p.add_argument("--features",    nargs="+", type=int,
+                   default=[64, 128, 256, 512, 1024, 2048])
+    p.add_argument("--seed",        type=int, default=42)
+    p.add_argument("--device",      default=None)
+    return p.parse_args()
+
+
+def main():
+    args = parse_args()
+    np.random.seed(args.seed)
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)
+
+    device  = torch.device(args.device or ("cuda" if torch.cuda.is_available() else "cpu"))
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Load model
+    model = UNET1D(in_channels=2, out_channels=4, features=args.features).to(device)
+    ckpt  = torch.load(args.checkpoint, map_location=device, weights_only=False)
+    model.load_state_dict(ckpt["state_dict"])
+    model.eval()
+    print(f"Loaded checkpoint  (epoch {ckpt.get('epoch', '?')})")
+
+    # Load scaler
+    if args.scaler:
+        with open(args.scaler, "rb") as f:
+            scaler = pickle.load(f)
+        print(f"Loaded scaler from {args.scaler}")
+    else:
+        warnings.warn("No --scaler provided — results will be unreliable.")
+        from sklearn.preprocessing import StandardScaler
+        scaler = StandardScaler()
+        scaler.mean_  = np.array([0.0])
+        scaler.scale_ = np.array([1.0])
+
+    # ── Generate ──────────────────────────────────────────────────────────────
+    results = {ev: [] for ev in EVENTS}
+    all_examples = []  # for the time-series separation plot
+
+    for event_name, params in EVENTS.items():
+        print(f"\n{event_name}  ({args.n_per_event} realisations)")
+        for i in range(args.n_per_event):
+            print(f"  [{i+1}/{args.n_per_event}] generating ...", end=" ", flush=True)
+            ex = generate_bilby_example(event_name, params)
+            ex = inject_gengli_glitch(ex,
+                                      snr_min=args.snr_min_glitch,
+                                      snr_max=args.snr_max_glitch)
+            ex = run_separator(ex, model, scaler, device)
+            ex.update(compute_mismatches(ex))
+
+            print(f"MM signal H1={ex['mismatch_signal_h1']:.1f}%  "
+                  f"L1={ex['mismatch_signal_l1']:.1f}%  "
+                  f"glitch={ex['mismatch_glitch']:.1f}%")
+
+            results[event_name].append(ex)
+            all_examples.append(ex)
+
+    # ── Save pickle ───────────────────────────────────────────────────────────
+    pkl_path = out_dir / f"pe_cases_n{args.n_per_event}.pkl"
+    with open(pkl_path, "wb") as f:
+        pickle.dump(results, f)
+    print(f"\nSaved {pkl_path}")
+
+    # ── Plots ─────────────────────────────────────────────────────────────────
+    print("\nSaving plots ...")
+    plot_separation(all_examples, out_dir / f"separation_examples_n{args.n_per_event}.png")
+    plot_mismatch_summary(results, out_dir / f"mismatch_summary_n{args.n_per_event}.png")
+
+
+if __name__ == "__main__":
+    main()

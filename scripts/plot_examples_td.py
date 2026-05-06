@@ -277,6 +277,7 @@ def plot_examples(examples: list, out_path: Path):
         event_label = f"{ex['event']}  SNR H1={ex['snr_h1']:.1f} L1={ex['snr_l1']:.1f}"
 
         # --- Row 0: inputs ---
+        snr_by_ifo = {"H1": ex["snr_h1"], "L1": ex["snr_l1"]}
         for col, (ifo, data) in enumerate([("H1", ex["glitchy_h1"]), ("L1", ex["glitchy_l1"])]):
             ax = axes[r0, col]
             ax.plot(t, data, color="grey", lw=0.5, alpha=0.8, label="Input")
@@ -287,9 +288,9 @@ def plot_examples(examples: list, out_path: Path):
                 ax.plot(t, true_g, color="red", lw=0.8, ls="--", alpha=0.7, label="True glitch")
             ax.axvline(T_INJ, color="red", lw=0.8, ls=":", alpha=0.5)
             if col == 0:
-                ax.set_ylabel(event_label, fontsize=7)
-            if row == 0:
-                ax.set_title(f"{ifo} — whitened input", fontsize=10)
+                ax.set_ylabel(ex["event"], fontsize=8)
+            title = f"{ifo} — whitened input  (SNR = {snr_by_ifo[ifo]:.1f})"
+            ax.set_title(title, fontsize=9)
             ax.legend(fontsize=6, loc="upper left")
             ax.tick_params(labelsize=7)
 

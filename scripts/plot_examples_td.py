@@ -190,7 +190,7 @@ def generate_bilby_example(event_name: str, injection_parameters: dict) -> dict:
     whitened_noise_l1 = ifos[1].whitened_time_domain_strain.copy()
 
     # Inject GW signal
-    ifos.inject_signal(waveform_generator=wfg, parameters=injection_parameters)
+    ifos.inject_signal(waveform_generator=wfg, parameters=injection_parameters, raise_error=False)
 
     # Noise + signal after injection (whitened)
     real_whitened_h1 = ifos[0].whitened_time_domain_strain.copy()

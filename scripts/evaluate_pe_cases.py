@@ -196,7 +196,7 @@ def generate_bilby_example(event_name: str, params: dict) -> dict:
     whitened_noise_h1 = ifos[0].whitened_time_domain_strain.copy()
     whitened_noise_l1 = ifos[1].whitened_time_domain_strain.copy()
 
-    ifos.inject_signal(waveform_generator=wfg, parameters=params)
+    ifos.inject_signal(waveform_generator=wfg, parameters=params, raise_error=False)
 
     whitened_h1 = ifos[0].whitened_time_domain_strain.copy()
     whitened_l1 = ifos[1].whitened_time_domain_strain.copy()

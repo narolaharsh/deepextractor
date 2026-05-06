@@ -94,16 +94,16 @@ EVENTS = {
         geocent_time=1242442967.44,
         ra=4.37, dec=0.91,
     ),
-    "GW190814": dict(
-        # Extreme mass ratio (q~0.11); secondary may be NS or lightest BH (Abbott+2020 ApJL)
-        mass_1=23.2, mass_2=2.59,
-        a_1=0.03, a_2=0.01,
-        tilt_1=1.57, tilt_2=1.57,
+    "GW190828": dict(
+        # Comparable-mass BBH, moderate distance (GWTC-2)
+        mass_1=32.7, mass_2=26.4,
+        a_1=0.07, a_2=0.05,
+        tilt_1=1.40, tilt_2=1.50,
         phi_12=1.00, phi_jl=1.00,
-        luminosity_distance=241,
-        theta_jn=0.81, psi=0.70, phase=2.00,
-        geocent_time=1249852257.0,
-        ra=0.89, dec=-0.42,
+        luminosity_distance=1813,
+        theta_jn=0.90, psi=0.70, phase=1.50,
+        geocent_time=1251009263.0,
+        ra=0.50, dec=-0.70,
     ),
     # O3b
     "GW191204": dict(
@@ -139,28 +139,27 @@ EVENTS = {
         geocent_time=1269363521.74,
         ra=3.68, dec=0.72,
     ),
-    "GW200311": dict(
-        # Comparable-mass BBH; high SNR (GWTC-3)
-        mass_1=34.1, mass_2=27.7,
-        a_1=0.05, a_2=0.08,
+    "GW191109": dict(
+        # High-mass precessing BBH with anti-aligned spins (GWTC-3)
+        mass_1=65.0, mass_2=47.0,
+        a_1=0.90, a_2=0.76,
+        tilt_1=1.55, tilt_2=0.93,
+        phi_12=0.40, phi_jl=4.10,
+        luminosity_distance=1800,
+        theta_jn=0.70, psi=0.50, phase=1.40,
+        geocent_time=1257296855.0,
+        ra=3.52, dec=0.55,
+    ),
+    "GW200225": dict(
+        # Moderate-mass BBH, low-spin (GWTC-3)
+        mass_1=19.3, mass_2=13.8,
+        a_1=0.05, a_2=0.03,
         tilt_1=1.40, tilt_2=1.50,
         phi_12=1.00, phi_jl=1.00,
         luminosity_distance=1170,
-        theta_jn=0.80, psi=0.30, phase=2.00,
-        geocent_time=1270708501.0,
-        ra=1.23, dec=0.43,
-    ),
-    # O4a
-    "GW230529": dict(
-        # First NS-BH in O4a; secondary likely neutron star (Abbott+2024)
-        mass_1=5.5, mass_2=1.5,
-        a_1=0.10, a_2=0.01,
-        tilt_1=0.50, tilt_2=1.50,
-        phi_12=1.00, phi_jl=1.00,
-        luminosity_distance=200,
-        theta_jn=0.40, psi=0.50, phase=1.00,
-        geocent_time=1369419498.0,
-        ra=2.00, dec=-0.30,
+        theta_jn=0.80, psi=0.60, phase=2.00,
+        geocent_time=1269391228.0,
+        ra=3.00, dec=-0.50,
     ),
 }
 

@@ -49,18 +49,32 @@ TIME_AXIS = np.linspace(0, T, LENGTH, endpoint=False)
 
 # Four real GW events used in the CIT notebook
 EVENTS = {
+    # O1
     "GW150914": dict(
-        mass_1=36, mass_2=29,
+        mass_1=36.0, mass_2=29.0,
         a_1=0.11, a_2=0.09,
-        tilt_1=1.4, tilt_2=1.3,
-        phi_12=1, phi_jl=2.2,
+        tilt_1=1.40, tilt_2=1.30,
+        phi_12=1.00, phi_jl=2.20,
         luminosity_distance=450,
-        theta_jn=0.5, psi=0, phase=0,
+        theta_jn=0.50, psi=0.00, phase=0.00,
         geocent_time=1126259642.413,
-        ra=1.5, dec=0.5,
+        ra=1.50, dec=0.50,
+    ),
+    # O3a
+    "GW190412": dict(
+        # Asymmetric mass ratio; first clear detection of higher modes (Abbott+2020 PRL)
+        mass_1=30.1, mass_2=8.3,
+        a_1=0.28, a_2=0.02,
+        tilt_1=0.56, tilt_2=1.50,
+        phi_12=1.00, phi_jl=0.20,
+        luminosity_distance=740,
+        theta_jn=0.60, psi=0.30, phase=0.50,
+        geocent_time=1239082262.2,
+        ra=1.71, dec=0.73,
     ),
     "GW190521": dict(
-        mass_1=85, mass_2=66,
+        # Highest-mass BBH; possible IMR signal (Abbott+2020 PRL)
+        mass_1=85.0, mass_2=66.0,
         a_1=0.69, a_2=0.73,
         tilt_1=0.52, tilt_2=1.06,
         phi_12=5.56, phi_jl=0.41,
@@ -69,17 +83,42 @@ EVENTS = {
         geocent_time=1242442967.44,
         ra=4.37, dec=0.91,
     ),
+    "GW190814": dict(
+        # Extreme mass ratio (q~0.11); secondary may be NS or lightest BH (Abbott+2020 ApJL)
+        mass_1=23.2, mass_2=2.59,
+        a_1=0.03, a_2=0.01,
+        tilt_1=1.57, tilt_2=1.57,
+        phi_12=1.00, phi_jl=1.00,
+        luminosity_distance=241,
+        theta_jn=0.81, psi=0.70, phase=2.00,
+        geocent_time=1249852257.0,
+        ra=0.89, dec=-0.42,
+    ),
+    # O3b
+    "GW191204": dict(
+        # Clean, moderate-mass BBH (GWTC-3)
+        mass_1=11.9, mass_2=8.2,
+        a_1=0.10, a_2=0.05,
+        tilt_1=1.40, tilt_2=1.50,
+        phi_12=1.00, phi_jl=1.00,
+        luminosity_distance=630,
+        theta_jn=0.50, psi=0.50, phase=1.00,
+        geocent_time=1259514990.0,
+        ra=0.79, dec=-0.34,
+    ),
     "GW200129": dict(
+        # Precessing BBH with strong in-band glitch in L1 (GWTC-3)
         mass_1=34.5, mass_2=29.0,
-        a_1=0.9, a_2=0.75,
+        a_1=0.90, a_2=0.75,
         tilt_1=0.79, tilt_2=1.26,
         phi_12=2.56, phi_jl=0.28,
         luminosity_distance=985,
-        theta_jn=2.51, psi=0.37, phase=3.0,
+        theta_jn=2.51, psi=0.37, phase=3.00,
         geocent_time=1264316116.44,
         ra=2.13, dec=-1.23,
     ),
     "GW200224": dict(
+        # High-mass comparable-mass BBH (GWTC-3)
         mass_1=40.0, mass_2=33.0,
         a_1=0.05, a_2=0.31,
         tilt_1=1.05, tilt_2=2.00,
@@ -88,6 +127,29 @@ EVENTS = {
         theta_jn=0.55, psi=1.75, phase=4.52,
         geocent_time=1269363521.74,
         ra=3.68, dec=0.72,
+    ),
+    "GW200311": dict(
+        # Comparable-mass BBH; high SNR (GWTC-3)
+        mass_1=34.1, mass_2=27.7,
+        a_1=0.05, a_2=0.08,
+        tilt_1=1.40, tilt_2=1.50,
+        phi_12=1.00, phi_jl=1.00,
+        luminosity_distance=1170,
+        theta_jn=0.80, psi=0.30, phase=2.00,
+        geocent_time=1270708501.0,
+        ra=1.23, dec=0.43,
+    ),
+    # O4a
+    "GW230529": dict(
+        # First NS-BH in O4a; secondary likely neutron star (Abbott+2024)
+        mass_1=5.5, mass_2=1.5,
+        a_1=0.10, a_2=0.01,
+        tilt_1=0.50, tilt_2=1.50,
+        phi_12=1.00, phi_jl=1.00,
+        luminosity_distance=200,
+        theta_jn=0.40, psi=0.50, phase=1.00,
+        geocent_time=1369419498.0,
+        ra=2.00, dec=-0.30,
     ),
 }
 

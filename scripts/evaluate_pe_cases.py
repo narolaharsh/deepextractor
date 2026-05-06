@@ -224,9 +224,8 @@ def generate_bilby_example(event_name: str, params: dict) -> dict:
     }
 
 
-def inject_gengli_glitch(ex: dict, snr_min: float = 15.0, snr_max: float = 100.0,
-                         inject_h1: bool | None = None) -> dict:
-    """Inject a gengli glitch into one detector at merger time."""
+def inject_gengli_glitch(ex: dict, inject_h1: bool | None = None) -> dict:
+    """Inject a gengli glitch at the SNR of the louder detector."""
     import gengli
 
     if inject_h1 is None:
@@ -237,7 +236,7 @@ def inject_gengli_glitch(ex: dict, snr_min: float = 15.0, snr_max: float = 100.0
     raw_glitch = np.array(g.get_glitch()).squeeze()
     raw_glitch = raw_glitch - raw_glitch.mean()
 
-    glitch_snr = np.random.uniform(snr_min, snr_max) / SNR_SCALING_FACTOR_BILBY
+    glitch_snr = max(ex["snr_h1"], ex["snr_l1"]) / SNR_SCALING_FACTOR_BILBY
     glitch = whitened_snr_scaling(raw_glitch, snr=glitch_snr)
 
     glitchy_h1 = ex["whitened_data_h1"].copy()
@@ -325,69 +324,66 @@ def compute_mismatches(ex: dict) -> dict:
 
 # ── Plotting ──────────────────────────────────────────────────────────────────
 
-def plot_separation(examples: list, out_path: Path) -> None:
-    """Time-series separation plot — one row of 3 panels per example."""
-    n = len(examples)
-    fig, axes = plt.subplots(n * 3, 2, figsize=(14, 4 * n), sharex=True)
-    if n * 3 == 1:
-        axes = axes[np.newaxis]
+def plot_separation_event(ex: dict, out_path: Path) -> None:
+    """One figure per event: 3 rows × 2 cols (input / signal / glitch)."""
+    fig, axes = plt.subplots(3, 2, figsize=(14, 10), sharex=True)
 
-    for row, ex in enumerate(examples):
-        r0, r1, r2 = row * 3, row * 3 + 1, row * 3 + 2
-        mm = {
-            "sig_h1":  ex["mismatch_signal_h1"],
-            "sig_l1":  ex["mismatch_signal_l1"],
-            "glitch":  ex["mismatch_glitch"],
-        }
+    mm = {
+        "sig_h1": ex["mismatch_signal_h1"],
+        "sig_l1": ex["mismatch_signal_l1"],
+        "glitch": ex["mismatch_glitch"],
+    }
+    glitch_det = "H1" if ex["inject_h1"] else "L1"
 
-        # Row 0 — whitened inputs
-        for col, ifo in enumerate(["H1", "L1"]):
-            ifo_l = ifo.lower()
-            ax = axes[r0, col]
-            ax.plot(TIME_AXIS, ex[f"glitchy_{ifo_l}"],    color="grey",  lw=0.5, alpha=0.8, label="Input")
-            ax.plot(TIME_AXIS, ex[f"signal_{ifo_l}"],     color="black", lw=0.8, ls="--", alpha=0.7, label="True GW")
-            true_g = ex[f"true_glitch_{ifo_l}"]
-            if np.any(true_g != 0):
-                ax.plot(TIME_AXIS, true_g, color="red", lw=0.8, ls="--", alpha=0.7, label="True glitch")
-            ax.axvline(T_INJ, color="red", lw=0.8, ls=":", alpha=0.5)
-            ax.set_title(f"{ifo} — input  (SNR={ex[f'snr_{ifo_l}']:.1f})", fontsize=9)
-            if col == 0:
-                ax.set_ylabel(ex["event"], fontsize=8)
-            ax.legend(fontsize=6, loc="upper left")
-            ax.tick_params(labelsize=7)
+    # Row 0 — whitened inputs
+    for col, ifo in enumerate(["H1", "L1"]):
+        ifo_l = ifo.lower()
+        ax = axes[0, col]
+        ax.plot(TIME_AXIS, ex[f"glitchy_{ifo_l}"], color="grey",  lw=0.5, alpha=0.8, label="Input")
+        ax.plot(TIME_AXIS, ex[f"signal_{ifo_l}"],  color="black", lw=0.8, ls="--", alpha=0.7, label="True GW")
+        true_g = ex[f"true_glitch_{ifo_l}"]
+        if np.any(true_g != 0):
+            ax.plot(TIME_AXIS, true_g, color="red", lw=0.8, ls="--", alpha=0.7, label="True glitch")
+        ax.axvline(T_INJ, color="red", lw=0.8, ls=":", alpha=0.5)
+        ax.set_title(
+            f"{ifo} — whitened input  "
+            f"(GW SNR={ex[f'snr_{ifo_l}']:.1f},  glitch SNR={ex['glitch_snr']:.1f} in {glitch_det})",
+            fontsize=9,
+        )
+        ax.legend(fontsize=6, loc="upper left")
+        ax.tick_params(labelsize=7)
 
-        # Row 1 — reconstructed GW signal
-        for col, ifo in enumerate(["H1", "L1"]):
-            ifo_l = ifo.lower()
-            ax = axes[r1, col]
-            ax.plot(TIME_AXIS, ex[f"glitchy_{ifo_l}"],   color="grey",      lw=0.4, alpha=0.4)
-            ax.plot(TIME_AXIS, ex[f"pred_{ifo_l}_sig"],  color="royalblue", lw=0.8, label="Predicted")
-            ax.plot(TIME_AXIS, ex[f"signal_{ifo_l}"],    color="black",     lw=0.8, ls=":", alpha=0.8, label="True")
-            ax.axvline(T_INJ, color="red", lw=0.8, ls=":", alpha=0.5)
-            ax.set_title(f"{ifo} signal — MM={mm[f'sig_{ifo_l}']:.1f}%", fontsize=9, color="darkred")
-            ax.legend(fontsize=6, loc="upper left")
-            ax.tick_params(labelsize=7)
+    # Row 1 — reconstructed GW signal
+    for col, ifo in enumerate(["H1", "L1"]):
+        ifo_l = ifo.lower()
+        ax = axes[1, col]
+        ax.plot(TIME_AXIS, ex[f"glitchy_{ifo_l}"],  color="grey",      lw=0.4, alpha=0.4)
+        ax.plot(TIME_AXIS, ex[f"pred_{ifo_l}_sig"], color="royalblue", lw=0.8, label="Predicted signal")
+        ax.plot(TIME_AXIS, ex[f"signal_{ifo_l}"],   color="black",     lw=0.8, ls=":", alpha=0.8, label="True signal")
+        ax.axvline(T_INJ, color="red", lw=0.8, ls=":", alpha=0.5)
+        ax.set_title(f"{ifo} signal — MM={mm[f'sig_{ifo_l}']:.1f}%", fontsize=9, color="darkred")
+        ax.legend(fontsize=6, loc="upper left")
+        ax.tick_params(labelsize=7)
 
-        # Row 2 — reconstructed glitch
-        for col, ifo in enumerate(["H1", "L1"]):
-            ifo_l = ifo.lower()
-            ax = axes[r2, col]
-            has_glitch = (ifo == "H1") == ex["inject_h1"]
-            ax.plot(TIME_AXIS, ex[f"glitchy_{ifo_l}"],  color="grey",   lw=0.4, alpha=0.4)
-            ax.plot(TIME_AXIS, ex[f"g_hat_{ifo_l}"],    color="tomato", lw=0.8, label="Predicted glitch")
-            ax.plot(TIME_AXIS, ex[f"true_glitch_{ifo_l}"], color="black", lw=0.8, ls=":", alpha=0.8, label="True glitch")
-            ax.axvline(T_INJ, color="red", lw=0.8, ls=":", alpha=0.5)
-            if has_glitch:
-                ax.set_title(f"{ifo} glitch — MM={mm['glitch']:.1f}%", fontsize=9, color="darkred")
-            else:
-                ax.set_title(f"{ifo} — no glitch injected", fontsize=9, color="grey")
-            ax.legend(fontsize=6, loc="upper left")
-            ax.tick_params(labelsize=7)
-            if row == n - 1:
-                ax.set_xlabel("Time (s)", fontsize=8)
+    # Row 2 — reconstructed glitch
+    for col, ifo in enumerate(["H1", "L1"]):
+        ifo_l = ifo.lower()
+        ax = axes[2, col]
+        has_glitch = (ifo == glitch_det)
+        ax.plot(TIME_AXIS, ex[f"glitchy_{ifo_l}"],     color="grey",   lw=0.4, alpha=0.4)
+        ax.plot(TIME_AXIS, ex[f"g_hat_{ifo_l}"],       color="tomato", lw=0.8, label="Predicted glitch")
+        ax.plot(TIME_AXIS, ex[f"true_glitch_{ifo_l}"], color="black",  lw=0.8, ls=":", alpha=0.8, label="True glitch")
+        ax.axvline(T_INJ, color="red", lw=0.8, ls=":", alpha=0.5)
+        if has_glitch:
+            ax.set_title(f"{ifo} glitch — MM={mm['glitch']:.1f}%", fontsize=9, color="darkred")
+        else:
+            ax.set_title(f"{ifo} — no glitch injected", fontsize=9, color="grey")
+        ax.legend(fontsize=6, loc="upper left")
+        ax.tick_params(labelsize=7)
+        ax.set_xlabel("Time (s)", fontsize=8)
 
     fig.suptitle(
-        "DeepExtractor PE evaluation  |  bilby noise + IMRPhenomXPHM + gengli glitch\n"
+        f"{ex['event']}  |  bilby noise + IMRPhenomXPHM + gengli glitch\n"
         f"Red dotted line = merger (t={T_INJ}s)  |  MM = mismatch (%)",
         fontsize=11,
     )
@@ -444,8 +440,6 @@ def parse_args():
     p.add_argument("--out",         required=True,   help="Output directory")
     p.add_argument("--n-per-event", type=int, default=1,
                    help="Number of independent realisations per event (default: 1)")
-    p.add_argument("--snr-min-glitch", type=float, default=15.0)
-    p.add_argument("--snr-max-glitch", type=float, default=100.0)
     p.add_argument("--features",    nargs="+", type=int,
                    default=[64, 128, 256, 512, 1024, 2048])
     p.add_argument("--seed",        type=int, default=42)
@@ -491,9 +485,7 @@ def main():
         for i in range(args.n_per_event):
             print(f"  [{i+1}/{args.n_per_event}] generating ...", end=" ", flush=True)
             ex = generate_bilby_example(event_name, params)
-            ex = inject_gengli_glitch(ex,
-                                      snr_min=args.snr_min_glitch,
-                                      snr_max=args.snr_max_glitch)
+            ex = inject_gengli_glitch(ex)
             ex = run_separator(ex, model, scaler, device)
             ex.update(compute_mismatches(ex))
 
@@ -512,7 +504,10 @@ def main():
 
     # ── Plots ─────────────────────────────────────────────────────────────────
     print("\nSaving plots ...")
-    plot_separation(all_examples, out_dir / f"separation_examples_n{args.n_per_event}.png")
+    sep_dir = out_dir / "separation"
+    sep_dir.mkdir(exist_ok=True)
+    for ex in all_examples:
+        plot_separation_event(ex, sep_dir / f"{ex['event']}.png")
     plot_mismatch_summary(results, out_dir / f"mismatch_summary_n{args.n_per_event}.png")
 
 

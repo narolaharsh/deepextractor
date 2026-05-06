@@ -150,6 +150,52 @@ EVENTS = {
         geocent_time=1269391228.0,
         ra=3.00, dec=-0.50,
     ),
+    # O4a
+    "GW231028": dict(
+        # High-mass BBH (GWTC-4); m1=95, m2=58 → ~0.1s in-band
+        mass_1=95.0, mass_2=58.0,
+        a_1=0.05, a_2=0.03,
+        tilt_1=1.50, tilt_2=1.50,
+        phi_12=1.00, phi_jl=1.00,
+        luminosity_distance=4100,
+        theta_jn=0.80, psi=0.50, phase=1.00,
+        geocent_time=1382542404.0,
+        ra=1.80, dec=0.30,
+    ),
+    "GW231226": dict(
+        # Comparable-mass BBH, chi_eff=-0.09 (GWTC-4)
+        mass_1=40.1, mass_2=35.0,
+        a_1=0.10, a_2=0.05,
+        tilt_1=2.50, tilt_2=2.50,
+        phi_12=1.00, phi_jl=1.00,
+        luminosity_distance=1180,
+        theta_jn=0.90, psi=0.70, phase=2.00,
+        geocent_time=1387620938.3,
+        ra=2.50, dec=-0.20,
+    ),
+    "GW240104": dict(
+        # Comparable-mass BBH, chi_eff=0.09 (GWTC-4)
+        mass_1=42.3, mass_2=32.1,
+        a_1=0.10, a_2=0.05,
+        tilt_1=0.50, tilt_2=0.50,
+        phi_12=1.00, phi_jl=1.00,
+        luminosity_distance=1910,
+        theta_jn=0.70, psi=0.40, phase=1.50,
+        geocent_time=1388422190.6,
+        ra=1.20, dec=0.60,
+    ),
+    # O4b
+    "GW241110": dict(
+        # Asymmetric-mass BBH, chi_eff=-0.28 (GWTC-4)
+        mass_1=17.2, mass_2=7.7,
+        a_1=0.40, a_2=0.10,
+        tilt_1=2.80, tilt_2=2.00,
+        phi_12=1.00, phi_jl=1.00,
+        luminosity_distance=736,
+        theta_jn=1.00, psi=0.80, phase=0.50,
+        geocent_time=1415277701.7,
+        ra=3.10, dec=-0.40,
+    ),
 }
 
 WAVEFORM_ARGUMENTS = dict(

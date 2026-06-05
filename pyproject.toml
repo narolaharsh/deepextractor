@@ -64,6 +64,10 @@ docs = [
     "nbsphinx>=0.9",
     "ipykernel",
 ]
+# LIGO site cluster tools — only installable at LHO/LLO
+site = [
+    "gwtrigfind",
+]
 # Full install
 all = ["deepextractor[generative,dev,docs]"]
 

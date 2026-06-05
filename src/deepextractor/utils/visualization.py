@@ -63,7 +63,17 @@ def plot_examples(
     plt.close()
 
 
-def plot_q_transform(data, srate=4096.0, crop=None, whiten=True, ax=None, colourbar=True, qrange = [4, 64], frange = [10, 1200]):
+def plot_q_transform(
+    data,
+    srate=4096.0,
+    crop=None,
+    whiten=True,
+    ax=None,
+    colourbar=True,
+    qrange=[4, 64],
+    frange=[10, 1200],
+    clim=(0, 25.5),
+):
     """
     Plot the Q-transform of a time series using gwpy.
 
@@ -81,12 +91,18 @@ def plot_q_transform(data, srate=4096.0, crop=None, whiten=True, ax=None, colour
         Axes on which to plot. A new figure is created if not provided.
     colourbar : bool
         If True, add a colorbar to the plot.
+    qrange : list
+        [q_min, q_max] range for the Q-transform.
+    frange : list
+        [f_min, f_max] frequency range in Hz.
+    clim : tuple
+        (vmin, vmax) colour axis limits for normalised energy.
     """
-    data = TimeSeries(data, sample_rate=srate)
+    ts = TimeSeries(data, sample_rate=srate)
 
-    q_scan = data.q_transform(
+    q_scan = ts.q_transform(
         qrange=qrange,
-        frange=[10, 1200],
+        frange=frange,
         tres=0.002,
         fres=0.5,
         whiten=whiten,
@@ -94,28 +110,31 @@ def plot_q_transform(data, srate=4096.0, crop=None, whiten=True, ax=None, colour
 
     if isinstance(crop, (list, tuple)):
         t_center, dur = crop
-        t_center = t_center + data.t0.value
+        t_center = t_center + ts.t0.value
         q_scan = q_scan.crop(t_center - dur / 2, t_center + dur / 2)
-        xticklabels = np.linspace(0, 2, 5)
+        t_end = dur
+    else:
+        t_end = len(data) / srate
+        dur = t_end
+
+    extent = [0, t_end, frange[0], frange[1]]
+    xticklabels = np.linspace(0, t_end, 5)
 
     if ax is None:
-        fig, ax = plt.subplots(dpi=120)
+        _, ax = plt.subplots(dpi=120)
 
-    im = ax.imshow(q_scan, aspect="auto", extent=[0, 2, 10, 1290])
+    im = ax.imshow(q_scan, aspect="auto", extent=extent)
     ax.set_yscale("log", base=2)
     ax.set_xscale("linear")
-
-    if isinstance(crop, (list, tuple)):
-        ax.set_xticks(xticklabels)
-        ax.set_xticklabels(xticklabels)
-
+    ax.set_xticks(xticklabels)
+    ax.set_xticklabels([f"{v:.2g}" for v in xticklabels])
     ax.set_ylabel("Frequency (Hz)", fontsize=14)
     ax.set_xlabel("Time (s)", labelpad=0.1, fontsize=14)
     ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
     ax.tick_params(axis="both", which="major", labelsize=14)
 
-    im.set_clim(0, 25.5)
+    im.set_clim(*clim)
     if colourbar:
-        cb = ax.figure.colorbar(im, ax=ax, label="Normalized energy", pad=0.01)
+        cb = ax.figure.colorbar(im, ax=ax, pad=0.01)
         cb.ax.tick_params(labelsize=18)
-        cb.set_label("Normalized energy", fontsize=24)
+        cb.set_label("Normalised energy", fontsize=24)
